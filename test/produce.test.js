@@ -1,0 +1,150 @@
+// @flow
+import test from 'ava';
+import { delay } from '../src/utils';
+import { drain, produce, StreamError, tap, transform } from '../src';
+
+test('Finite streams can be produced', (t) => {
+  const observedArray = [];
+  return produce((push) => {
+    push({ value: 1 });
+    push({ value: 2 });
+    push({ value: 3 });
+    push({ done: true });
+  })
+    .thru(tap((v) => observedArray.push(v)))
+    .thru(drain())
+    .then(() => t.deepEqual(observedArray, [1, 2, 3]));
+});
+
+test('Pauses the production if there is a slow consumer', (t) => {
+  let observedCount = 0;
+  return produce((push, next) => {
+    for (let index = 0; index < 100; index++) {
+      push({ value: 'blip' });
+      push({ value: 'blop' });
+    }
+    push({ done: true });
+  })
+    .thru(transform((event, push) => {
+      observedCount++;
+      return new Promise((resolve) =>
+        setTimeout(() => {
+          push(event);
+          resolve();
+        }, 10));
+    }))
+    .thru(drain())
+    .then(() => t.is(observedCount, 201));
+});
+
+test('Finite streams with errors can be produced', (t) => {
+  const observedArray = [];
+  let value = 0;
+  return t.throws(
+    produce((push, next) => {
+      push({ value: value++ });
+      if (value > 4) {
+        push({ error: new Error('my cool error') });
+      }
+    })
+      .thru(tap((v) => observedArray.push(v)))
+      .thru(drain()),
+    Error
+  ).then((error) => {
+    t.is(error.message, 'my cool error');
+    t.deepEqual(observedArray, [0, 1, 2, 3, 4]);
+  });
+});
+
+test('Finite streams with errors can be produced (second version)', (t) => {
+  const observedArray = [];
+  let value = 0;
+  return t.throws(
+    produce((push, next) => {
+      push({ value: value++ });
+      if (value > 4) {
+        throw new Error('my cool error');
+      }
+    })
+      .thru(tap((v) => observedArray.push(v)))
+      .thru(drain()),
+    Error
+  ).then((error) => {
+    t.is(error.message, 'my cool error');
+    t.deepEqual(observedArray, [0, 1, 2, 3, 4]);
+  });
+});
+
+test('Push a value after done throws an error', (t) => {
+  const observedArray = [];
+  return produce((push, next) => {
+    push({ value: 1 });
+    push({ value: 2 });
+    push({ done: true });
+    t.throws(() => push({ value: 3 }), StreamError);
+  })
+    .thru(tap((v) => observedArray.push(v)))
+    .thru(drain())
+    .then(() => t.deepEqual(observedArray, [1, 2]));
+});
+
+test('Asynchronous finite streams can be produced', (t) => {
+  const observedArray = [];
+  let value = 3;
+  return produce((push) =>
+    delay(500)
+      .then(() => {
+        push({ value: value-- });
+        if (value < 0) {
+          push({ done: true });
+        }
+      })
+  )
+    .thru(tap((v) => observedArray.push(v)))
+    .thru(drain())
+    .then(() => t.deepEqual(observedArray, [3, 2, 1, 0]));
+});
+
+test('Asynchronous finite streams with errors can be produced', (t) => {
+  const observedArray = [];
+  let value = 3;
+  return t.throws(
+    produce((push) =>
+      delay(500)
+        .then(() => {
+          push({ value: value-- });
+          if (value < 0) {
+            return Promise.reject(new Error('my cool error'));
+          }
+        })
+    )
+      .thru(tap((v) => observedArray.push(v)))
+      .thru(drain()))
+    .then((error) => {
+      t.is(error.message, 'my cool error');
+      t.deepEqual(observedArray, [3, 2, 1, 0]);
+    });
+});
+
+test('Infinite streams and slow consumer do not override the callstack', (t) => {
+  const observedArray = [];
+  let value = 0;
+  const LIMIT = 6;
+  return produce((push, next) => {
+    push({ value: value++ });
+  })
+    .thru(transform((event, push) => {
+      return new Promise((resolve) => setTimeout(() => {
+        if (event.error || event.done || event.value < LIMIT) {
+          push(event);
+        }
+        else {
+          push({ done: true });
+        }
+        resolve();
+      }, 100));
+    }))
+    .thru(tap((v) => observedArray.push(v)))
+    .thru(drain())
+    .then(() => t.deepEqual(observedArray, [0, 1, 2, 3, 4, 5]));
+});

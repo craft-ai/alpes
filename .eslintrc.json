@@ -1,0 +1,9 @@
+{
+  "extends": [
+    "craft-ai",
+    "plugin:flowtype/recommended"
+  ],
+  "plugins": [
+    "flowtype"
+  ]
+}

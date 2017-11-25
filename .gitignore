@@ -1,0 +1,9 @@
+# Build artifacts
+/lib
+/node_modules
+
+# Tests artifacts
+/.nyc_output
+
+# Editor configuration
+/.vscode

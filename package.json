@@ -1,0 +1,42 @@
+{
+  "name": "alpes",
+  "version": "0.0.1",
+  "description": "Node.JS backpressure streams with a modern API",
+  "author": {
+    "name": "craft ai",
+    "email": "contact@craft.ai",
+    "url": "http://craft.ai/"
+  },
+  "license": "BSD-3-Clause",
+  "scripts": {
+    "build": "babel src/ -d lib/",
+    "prepublish": "yarn run build",
+    "lint": "eslint .",
+    "test:unit": "nyc -- ava",
+    "test": "yarn run test:unit && yarn run flow && yarn run lint",
+    "benchmark:mapReduce": "NODE_ENV=production node ./benchmark/mapReduce.benchmark.js",
+    "benchmark:drain": "NODE_ENV=production node ./benchmark/drain.benchmark.js",
+    "benchmark": "yarn run build && yarn run benchmark:mapReduce && yarn run benchmark:drain"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "ava": "^0.23.0",
+    "babel-cli": "^6.26.0",
+    "babel-eslint": "^8.0.2",
+    "babel-preset-flow": "^6.23.0",
+    "benchmark": "^2.1.4",
+    "eslint": "^4.11.0",
+    "eslint-config-craft-ai": "^2.3.0",
+    "eslint-plugin-flowtype": "^2.39.1",
+    "eslint-plugin-wyze": "^3.3.1",
+    "flow-bin": "^0.59.0",
+    "highland": "^2.11.1",
+    "most": "^1.7.2",
+    "nyc": "^11.3.0"
+  },
+  "ava": {
+    "require": [
+      "babel-register"
+    ]
+  }
+}
