@@ -1,6 +1,5 @@
 // @flow
-const { drain, transform } = require('./basics');
-const { tap } = require('./tap');
+const { subscribe, transform } = require('./basics');
 const { wrapInPromise } = require('./utils');
 
 import type { Stream, Transformer } from './basics';
@@ -10,7 +9,6 @@ type Reducer<ConsumedT, ProducedT> = (acc: ?ProducedT, value: ConsumedT) => ?Pro
 
 function reduce<ConsumedT, ProducedT>(reducer: Reducer<ConsumedT, ProducedT>, initialAcc?: ProducedT): (Stream<ConsumedT>) => Promise<?ProducedT> {
   const wrappedReducer: ReducerP<ConsumedT, ProducedT> = wrapInPromise(reducer);
-  const drainStream = drain();
   const transformer: Transformer<ConsumedT, ?ProducedT, ProducedT> = (event, push, acc) => {
     if (event.error) {
       push({ error: event.error });
@@ -28,13 +26,16 @@ function reduce<ConsumedT, ProducedT>(reducer: Reducer<ConsumedT, ProducedT>, in
   const transformStream = transform(transformer, initialAcc);
 
   return (stream) => {
-    let value;
-    return drainStream(
-      tap((v) => { value = v; })(
-        transformStream(stream)
-      )
-    )
-      .then(() => value);
+    return new Promise((resolve, reject) => {
+      subscribe((event) => {
+        if (event.error) {
+          reject(event.error);
+        }
+        else if (event.value) {
+          resolve(event.value);
+        }
+      })(transformStream(stream));
+    });
   };
 }
 

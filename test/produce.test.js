@@ -18,20 +18,16 @@ test('Finite streams can be produced', (t) => {
 
 test('Pauses the production if there is a slow consumer', (t) => {
   let observedCount = 0;
-  return produce((push, next) => {
+  return produce((push) => {
     for (let index = 0; index < 100; index++) {
-      push({ value: 'blip' });
-      push({ value: 'blop' });
+      push({ value: `blip #${index}` });
+      push({ value: `blop #${index}` });
     }
     push({ done: true });
   })
     .thru(transform((event, push) => {
       observedCount++;
-      return new Promise((resolve) =>
-        setTimeout(() => {
-          push(event);
-          resolve();
-        }, 10));
+      return delay(10).then(() => push(event));
     }))
     .thru(drain())
     .then(() => t.is(observedCount, 201));
@@ -41,7 +37,7 @@ test('Finite streams with errors can be produced', (t) => {
   const observedArray = [];
   let value = 0;
   return t.throws(
-    produce((push, next) => {
+    produce((push) => {
       push({ value: value++ });
       if (value > 4) {
         push({ error: new Error('my cool error') });
@@ -130,7 +126,7 @@ test('Infinite streams and slow consumer do not override the callstack', (t) => 
   const observedArray = [];
   let value = 0;
   const LIMIT = 6;
-  return produce((push, next) => {
+  return produce((push) => {
     push({ value: value++ });
   })
     .thru(transform((event, push) => {
