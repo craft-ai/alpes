@@ -176,76 +176,77 @@ const STREAM_STATE = {
   PAUSED: 'PAUSED'
 };
 
-type StreamState = $Keys<typeof STREAM_STATE>;
-
-function createPush<T>(stream: Readable): (Event<T>) => StreamState {
-  return (event) => {
-    if (event.error) {
-      stream.emit('error', event.error);
-      return STREAM_STATE.ERROR;
-    }
-    else if (event.done) {
-      stream.push(null);
-      return STREAM_STATE.DONE;
-    }
-    else {
-      // $FlowFixMe bug in the Readable type in flow, it does not support the object mode
-      return stream.push(event.value) ? STREAM_STATE.FLOWING : STREAM_STATE.PAUSED;
-    }
+function wrapProducer<T>(producer: Producer<T>) {
+  const wrappedProducer: ProducerP<T> = wrapInPromise(producer);
+  return (stream: Readable) => {
+    // Push wrapper handling _alpes_ events.
+    const push = (event) => {
+      if (event.error) {
+        stream.emit('error', event.error);
+        return STREAM_STATE.ERROR;
+      }
+      else if (event.done) {
+        stream.push(null);
+        return STREAM_STATE.DONE;
+      }
+      else {
+        // $FlowFixMe bug in the Readable type in flow, it does not support the object mode
+        return stream.push(event.value) ? STREAM_STATE.FLOWING : STREAM_STATE.PAUSED;
+      }
+    };
+    return ({ buffer = [], state = STREAM_STATE.FLOWING } = {}) => {
+      // Even when paused one push is needed.
+      let expectPush = true;
+      // 1 - Let's deal with remaining events
+      while (buffer.length > 0 && expectPush) {
+        const event = buffer.shift();
+        state = push(event);
+        expectPush = state == STREAM_STATE.FLOWING;
+      }
+      // Stop when if we've reached the end
+      if (state == STREAM_STATE.DONE || state == STREAM_STATE.ERROR) {
+        return { buffer, state };
+      }
+      // 2 - And now the new ones
+      return wrappedProducer(
+        (event: Event<T>) => {
+          if (expectPush) {
+            state = push(event);
+            expectPush = state == STREAM_STATE.FLOWING;
+          }
+          else if (state == STREAM_STATE.PAUSED) {
+            buffer.push(event);
+          }
+          else {
+            throw new StreamError('No event should be produced once the stream has ended.');
+          }
+        })
+        .catch((error) => {
+          if (expectPush) {
+            state = push({ error });
+            expectPush = state == STREAM_STATE.FLOWING;
+          }
+          else if (state == STREAM_STATE.PAUSED) {
+            buffer.push({ error });
+          }
+          else {
+            throw error;
+          }
+        })
+        .then(() => ({ buffer, state }));
+    };
   };
 }
 
 function produce<T>(producer: Producer<T>): Stream<T> {
-  const wrappedProducer: ProducerP<T> = wrapInPromise(producer);
-
-  // An event promise to make sure we don't push stuff out of order.
-  let eventsPromise = Promise.resolve({ buffer: [], state: STREAM_STATE.FLOWING });
+  const wrappedProducer = wrapProducer(producer);
+  // A promise to make sure we don't push stuff out of order.
+  let producerPromise = Promise.resolve();
 
   const stream = new Readable({
     objectMode: true,
     read(size) {
-      const push = createPush(this);
-      eventsPromise = eventsPromise.then(({ buffer, state }) => {
-        // Even when paused one push is needed.
-        let expectPush = true;
-        // 1 - Let's deal with remaining events
-        while (buffer.length > 0 && expectPush) {
-          const event = buffer.shift();
-          state = push(event);
-          expectPush = state == STREAM_STATE.FLOWING;
-        }
-        // Stop when if we've reached the end
-        if (state == STREAM_STATE.DONE || state == STREAM_STATE.ERROR) {
-          return { buffer, state };
-        }
-        // 2 - And now the new ones
-        return wrappedProducer(
-          (event: Event<T>) => {
-            if (expectPush) {
-              state = push(event);
-              expectPush = state == STREAM_STATE.FLOWING;
-            }
-            else if (state == STREAM_STATE.PAUSED) {
-              buffer.push(event);
-            }
-            else {
-              throw new StreamError('No event should be produced once the stream has ended.');
-            }
-          })
-          .catch((error) => {
-            if (expectPush) {
-              state = push({ error });
-              expectPush = state == STREAM_STATE.FLOWING;
-            }
-            else if (state == STREAM_STATE.PAUSED) {
-              buffer.push({ error });
-            }
-            else {
-              throw error;
-            }
-          })
-          .then(() => ({ buffer, state }));
-      });
+      producerPromise = producerPromise.then(wrappedProducer(this));
     }
   });
   return wrapReadableStream(stream);
