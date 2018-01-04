@@ -1,7 +1,7 @@
 // @flow
 import test from 'ava';
 import { delay } from '../src/utils';
-import { produce, subscribe, tap } from '../src';
+import { produce, subscribe } from '../src';
 
 test('Handles the backpressure', (t) => {
   let value = 1;

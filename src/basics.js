@@ -108,14 +108,11 @@ function subscribe<T>(subscriber: Subscriber<T>): (Stream<T>) => Promise<void> {
       const subscriberWritable = new Writable({
         objectMode: true,
         write(chunk, encoding, callback) {
-          //console.log('*** stream write', chunk);
           wrappedSubscriber({ value: chunk })
             .then(() => {
-              //console.log('*** subscriber done');
               callback();
             })
             .catch((error) => {
-              //console.log('*** subscriber error', error);
               callback(error);
             });
         }
@@ -124,11 +121,9 @@ function subscribe<T>(subscriber: Subscriber<T>): (Stream<T>) => Promise<void> {
           //console.log('*** stream finish');
           wrappedSubscriber({ done: true })
             .then(() => {
-              //console.log('*** subscriber done');
               resolve();
             })
             .catch((error) => {
-              //console.log('*** subscriber error', error);
               reject(error);
             });
         })
@@ -139,10 +134,8 @@ function subscribe<T>(subscriber: Subscriber<T>): (Stream<T>) => Promise<void> {
 
       stream.internals.stream
         .on('error', (error)  => {
-          //console.log('*** internal stream error', error);
           wrappedSubscriber({ error: error })
             .catch((error) => {
-              //console.log('*** subscriber error', error);
               subscriberWritable.emit('error', error);
             });
         })
@@ -169,71 +162,79 @@ function wrapReadableStream<T>(stream): Stream<T> {
 type ProducerP<T> = (push: Push<T>) => Promise<void>;
 type Producer<T> = (push: Push<T>) => void | Promise<void>;
 
-const STREAM_STATE = {
-  ERROR: 'ERROR',
-  DONE: 'DONE',
-  FLOWING: 'FLOWING',
-  PAUSED: 'PAUSED'
-};
-
 function wrapProducer<T>(producer: Producer<T>) {
   const wrappedProducer: ProducerP<T> = wrapInPromise(producer);
   return (stream: Readable) => {
-    // Push wrapper handling _alpes_ events.
-    const push = (event) => {
-      if (event.error) {
-        stream.emit('error', event.error);
-        return STREAM_STATE.ERROR;
-      }
-      else if (event.done) {
-        stream.push(null);
-        return STREAM_STATE.DONE;
-      }
-      else {
-        // $FlowFixMe bug in the Readable type in flow, it does not support the object mode
-        return stream.push(event.value) ? STREAM_STATE.FLOWING : STREAM_STATE.PAUSED;
-      }
-    };
-    return ({ buffer = [], state = STREAM_STATE.FLOWING } = {}) => {
+    return ({ buffer = [], productionEnded = false } = {}) => {
       // Even when paused one push is needed.
       let expectPush = true;
       // 1 - Let's deal with remaining events
       while (buffer.length > 0 && expectPush) {
         const event = buffer.shift();
-        state = push(event);
-        expectPush = state == STREAM_STATE.FLOWING;
-      }
-      // Stop when if we've reached the end
-      if (state == STREAM_STATE.DONE || state == STREAM_STATE.ERROR) {
-        return { buffer, state };
+        if (event.error) {
+          stream.emit('error', event.error);
+          return { buffer: [], productionEnded };
+        }
+        else if (event.done) {
+          stream.push(null);
+          return { buffer: [], productionEnded };
+        }
+        else {
+          // $FlowFixMe bug in the Readable type in flow, it does not support the object mode
+          expectPush = stream.push(event.value);
+        }
       }
       // 2 - And now the new ones
+      if (productionEnded) {
+        return { buffer, productionEnded };
+      }
       return wrappedProducer(
         (event: Event<T>) => {
-          if (expectPush) {
-            state = push(event);
-            expectPush = state == STREAM_STATE.FLOWING;
-          }
-          else if (state == STREAM_STATE.PAUSED) {
-            buffer.push(event);
-          }
-          else {
+          if (productionEnded) {
             throw new StreamError('No event should be produced once the stream has ended.');
           }
-        })
-        .catch((error) => {
-          if (expectPush) {
-            state = push({ error });
-            expectPush = state == STREAM_STATE.FLOWING;
+          else if (event.error) {
+            if (!expectPush) {
+              buffer.push(event);
+            }
+            else {
+              stream.emit('error', event.error);
+            }
+            productionEnded = true;
           }
-          else if (state == STREAM_STATE.PAUSED) {
-            buffer.push({ error });
+          else if (event.done) {
+            if (!expectPush) {
+              buffer.push(event);
+            }
+            else {
+              stream.push(null);
+            }
+            productionEnded = true;
           }
           else {
-            throw error;
+            if (!expectPush) {
+              buffer.push(event);
+            }
+            else {
+              // $FlowFixMe bug in the Readable type in flow, it does not support the object mode
+              expectPush = stream.push(event.value);
+            }
           }
         })
-        .then(() => ({ buffer, state }));
+        .then(() => ({ buffer, productionEnded }))
+        .catch((error) => {
+          if (productionEnded) {
+            throw error;
+          }
+          else if (expectPush) {
+            stream.emit('error', error);
+            return { buffer: [], productionEnded: true };
+          }
+          else {
+            buffer.push({ error });
+            return { buffer, productionEnded: true };
+          }
+        });
     };
   };
 }
