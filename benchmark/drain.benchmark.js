@@ -2,6 +2,7 @@ const alpes = require('../lib');
 const highland = require('highland');
 const most = require('most');
 const { benchmark, options, wrapRunner } = require('./helpers.js');
+const { Readable } = require('stream');
 
 const N = 10000;
 
@@ -15,6 +16,28 @@ benchmark(`drain (${data} items)`)
   .add('alpes', wrapRunner(() =>
     alpes.from(data)
       .thru(alpes.drain())),
+  options)
+  .add('node streams', wrapRunner(() => new Promise((resolve, reject) => {
+    const iterator = data[Symbol.iterator]();
+    const stream = new Readable({
+      objectMode: true,
+      read() {
+        for (;;) {
+          const { done, value } = iterator.next();
+          if (done) {
+            this.push(null);
+            return;
+          }
+          if (!this.push(value)) {
+            return;
+          }
+        }
+      }
+    })
+      .on('end', resolve)
+      .on('error', reject);
+    stream.resume();
+  })),
   options)
   .add('highland', wrapRunner(() => new Promise((resolve, reject) =>
     highland(data)

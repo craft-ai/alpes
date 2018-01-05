@@ -2,6 +2,7 @@ const alpes = require('../lib');
 const highland = require('highland');
 const most = require('most');
 const { benchmark, options, wrapRunner } = require('./helpers.js');
+const { Readable, Transform } = require('stream');
 
 const N = 10000;
 
@@ -20,6 +21,39 @@ benchmark(`map -> reduce (${data} items)`)
       .thru(alpes.map(addOne))
       .thru(alpes.reduce(sum, 0))),
   options)
+  .add('node streams', wrapRunner(() => new Promise((resolve, reject) => {
+    const iterator = data[Symbol.iterator]();
+    let reducedValue = 0;
+    const stream = new Readable({
+      objectMode: true,
+      read() {
+        for (;;) {
+          const { done, value } = iterator.next();
+          if (done) {
+            this.push(null);
+            return;
+          }
+          if (!this.push(value)) {
+            return;
+          }
+        }
+      }
+    })
+      .pipe(
+        new Transform({
+          objectMode: true,
+          transform(value, _, callback) {
+            callback(null, addOne(value));
+          }
+        })
+      )
+      .on('data', (value) => {
+        reducedValue = sum(value, reducedValue);
+      })
+      .on('end', () => resolve(reducedValue))
+      .on('error', reject);
+    stream.resume();
+  })), options)
   .add('highland', wrapRunner(() => new Promise((resolve, reject) =>
     highland(data)
       .map(addOne)
