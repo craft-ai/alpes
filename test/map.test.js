@@ -1,6 +1,6 @@
 // @flow
 import test from 'ava';
-import { drain, map, of, tap, throwError } from '../src';
+import { drain, map, of, subscribe, throwError } from '../src';
 
 test('Mapped function is applied to all the value in the stream', (t) => {
   let iFrom = 0;
@@ -12,11 +12,12 @@ test('Mapped function is applied to all the value in the stream', (t) => {
       ++iFrom;
       return v + 1;
     }))
-    .thru(tap((v) => {
-      t.is(v, iTransformed + 1);
-      ++iTransformed;
-    }))
-    .thru(drain());
+    .thru(subscribe((event) => {
+      if (event.value) {
+        t.is(event.value, iTransformed + 1);
+        ++iTransformed;
+      }
+    }));
 });
 
 test('Mapped function can change the type', (t) => {
@@ -29,11 +30,12 @@ test('Mapped function can change the type', (t) => {
       ++iFrom;
       return `${v}`;
     }))
-    .thru(tap((v) => {
-      t.is(v, `${iTransformed}`);
-      ++iTransformed;
-    }))
-    .thru(drain());
+    .thru(subscribe((event) => {
+      if (event.value) {
+        t.is(event.value, `${iTransformed}`);
+        ++iTransformed;
+      }
+    }));
 });
 
 test('Mapped function not called on errors', (t) => {

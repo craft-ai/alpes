@@ -1,5 +1,6 @@
 // @flow
-const { drain, from, of, produce, throwError, transform } = require('./basics');
+const { drain }  = require('./drain');
+const { from, of, produce, subscribe, throwError, transform } = require('./basics');
 const { map }  = require('./map');
 const { reduce }  = require('./reduce');
 const { tap }  = require('./tap');
@@ -13,6 +14,7 @@ module.exports = {
   produce,
   reduce,
   StreamError,
+  subscribe,
   tap,
   throwError,
   transform

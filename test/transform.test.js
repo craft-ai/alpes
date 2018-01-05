@@ -94,8 +94,7 @@ test('Can throw an error on any value', (t) => {
     });
 });
 
-// Works but leads to an 'Unhandled Rejection' https://github.com/avajs/ava/issues/1371
-test.skip('Can throw an error whenever (throw)', (t) => {
+test('Can throw an error whenever (throw)', (t) => {
   t.plan(1);
   return of(1, 2, 3, 4)
     .thru(transform((event, push) => {
@@ -105,8 +104,7 @@ test.skip('Can throw an error whenever (throw)', (t) => {
     .catch((error) => t.is(error.message, 'I do not like anything'));
 });
 
-// Works but leads to an 'Unhandled Rejection' https://github.com/avajs/ava/issues/1371
-test.skip('Can throw an error whenever (reject)', (t) => {
+test('Can throw an error whenever (reject)', (t) => {
   t.plan(1);
   return of(1, 2, 3, 4)
     .thru(transform((event, push) => {
