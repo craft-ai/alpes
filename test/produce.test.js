@@ -86,15 +86,16 @@ test('Push a value after done throws an error', (t) => {
 
 test('Asynchronous finite streams can be produced', (t) => {
   const observedArray = [];
-  let value = 3;
-  return produce((push) =>
-    delay(500)
-      .then(() => {
-        push({ value: value-- });
-        if (value < 0) {
-          push({ done: true });
-        }
-      })
+  return produce((push, value) => delay(500)
+    .then(() => {
+      value = value || 0;
+      push({ value: value-- });
+      if (value < 0) {
+        push({ done: true });
+      }
+      return value;
+    })
+    , 3
   )
     .thru(tap((v) => observedArray.push(v)))
     .thru(drain())

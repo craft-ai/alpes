@@ -109,28 +109,16 @@ function subscribe<T>(subscriber: Subscriber<T>): (Stream<T>) => Promise<void> {
         objectMode: true,
         write(chunk, encoding, callback) {
           wrappedSubscriber({ value: chunk })
-            .then(() => {
-              callback();
-            })
-            .catch((error) => {
-              callback(error);
-            });
+            .then(callback)
+            .catch(callback);
         }
       })
         .on('finish', () => {
-          //console.log('*** stream finish');
           wrappedSubscriber({ done: true })
-            .then(() => {
-              resolve();
-            })
-            .catch((error) => {
-              reject(error);
-            });
+            .then(resolve)
+            .catch(reject);
         })
-        .on('error', (error) => {
-          //console.log('*** stream error', error);
-          reject(error);
-        });
+        .on('error', reject);
 
       stream.internals.stream
         .on('error', (error)  => {
@@ -159,13 +147,14 @@ function wrapReadableStream<T>(stream): Stream<T> {
   };
 }
 
-type ProducerP<T> = (push: Push<T>) => Promise<void>;
-type Producer<T> = (push: Push<T>) => void | Promise<void>;
+type ProducerP<ProducedT, SeedT> = (push: Push<ProducedT>, seed: ?SeedT) => Promise<?SeedT>;
+type Producer<ProducedT, SeedT> = (push: Push<ProducedT>, seed: ?SeedT) => ?SeedT | Promise<?SeedT>;
 
-function wrapProducer<T>(producer: Producer<T>) {
-  const wrappedProducer: ProducerP<T> = wrapInPromise(producer);
+function wrapProducer<ProducedT, SeedT>(producer: Producer<ProducedT, SeedT>, initialSeed: ?SeedT) {
+  const wrappedProducer: ProducerP<ProducedT, SeedT> = wrapInPromise(producer);
   return (stream: Readable) => {
-    return ({ buffer = [], productionEnded = false } = {}) => {
+    const theInitialSeed: ?SeedT = initialSeed;
+    return ({ buffer = [], productionEnded = false, seed = theInitialSeed } = {}) => {
       // Even when paused one push is needed.
       let expectPush = true;
       // 1 - Let's deal with remaining events
@@ -173,11 +162,11 @@ function wrapProducer<T>(producer: Producer<T>) {
         const event = buffer.shift();
         if (event.error) {
           stream.emit('error', event.error);
-          return { buffer: [], productionEnded };
+          return { buffer: [], productionEnded, seed: (undefined: ?SeedT) };
         }
         else if (event.done) {
           stream.push(null);
-          return { buffer: [], productionEnded };
+          return { buffer: [], productionEnded, seed: (undefined: ?SeedT) };
         }
         else {
           // $FlowFixMe bug in the Readable type in flow, it does not support the object mode
@@ -186,10 +175,10 @@ function wrapProducer<T>(producer: Producer<T>) {
       }
       // 2 - And now the new ones
       if (productionEnded) {
-        return { buffer, productionEnded };
+        return { buffer, productionEnded, seed };
       }
       return wrappedProducer(
-        (event: Event<T>) => {
+        (event: Event<ProducedT>) => {
           if (productionEnded) {
             throw new StreamError('No event should be produced once the stream has ended.');
           }
@@ -220,27 +209,28 @@ function wrapProducer<T>(producer: Producer<T>) {
               expectPush = stream.push(event.value);
             }
           }
-        })
-        .then(() => ({ buffer, productionEnded }))
+        // $FlowFixMe not sure why this doesn't work here...
+        }, seed)
+        .then((seed: ?SeedT) => ({ buffer, productionEnded, seed }))
         .catch((error) => {
           if (productionEnded) {
             throw error;
           }
           else if (expectPush) {
             stream.emit('error', error);
-            return { buffer: [], productionEnded: true };
+            return { buffer: [], productionEnded: true, seed: (undefined: ?SeedT) };
           }
           else {
             buffer.push({ error });
-            return { buffer, productionEnded: true };
+            return { buffer, productionEnded: true, seed: (undefined: ?SeedT) };
           }
         });
     };
   };
 }
 
-function produce<T>(producer: Producer<T>): Stream<T> {
-  const wrappedProducer = wrapProducer(producer);
+function produce<ProducedT, SeedT>(producer: Producer<ProducedT, SeedT>, seed: ?SeedT): Stream<ProducedT> {
+  const wrappedProducer = wrapProducer(producer, seed);
   // A promise to make sure we don't push stuff out of order.
   let producerPromise = Promise.resolve();
 
