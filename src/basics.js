@@ -1,5 +1,5 @@
 // @flow
-const { Readable, Transform, Writable } = require('stream');
+const { Readable, Transform } = require('stream');
 const { StreamError } = require('./errors');
 const { wrapInPromise } = require('./utils');
 
@@ -99,35 +99,53 @@ function transform<ConsumedT, ProducedT, SeedT>(transformer: Transformer<Consume
 type Subscriber<T> = (event: Event<T>) => void | Promise<void>;
 
 function subscribe<T>(subscriber: Subscriber<T>): (Stream<T>) => Promise<void> {
+  const wrapSubscriber = (stream, onFulfilled, onRejected) => ({
+    data: (value) => {
+      try {
+        const subscriberResult = subscriber({ value });
+        if (subscriberResult instanceof Promise) {
+          stream.internals.stream.pause();
+          subscriberResult.then(() => {
+            stream.internals.stream.resume();
+          })
+            .catch(onRejected);
+        }
+      }
+      catch (error) {
+        onRejected(error);
+      }
+    },
+    end: () => {
+      try {
+        Promise.resolve(subscriber({ done: true }))
+          .then(onFulfilled, onRejected);
+      }
+      catch (error) {
+        onRejected(error);
+      }
+    },
+    error: (error) => {
+      try {
+        Promise.resolve(subscriber({ error }))
+          .then(onFulfilled, onRejected);
+      }
+      catch (error) {
+        onRejected(error);
+      }
+    }
+  });
+
   return (stream) => {
     if (stream.internals.consumer) {
       throw new StreamError('Stream already being consumed.');
     }
-    const wrappedSubscriber = wrapInPromise(subscriber);
     const subscribePromise = new Promise((resolve, reject) => {
-      const subscriberWritable = new Writable({
-        objectMode: true,
-        write(chunk, encoding, callback) {
-          wrappedSubscriber({ value: chunk })
-            .then(callback)
-            .catch(callback);
-        }
-      })
-        .on('finish', () => {
-          wrappedSubscriber({ done: true })
-            .then(resolve)
-            .catch(reject);
-        })
-        .on('error', reject);
-
+      const wrappedSubscriber = wrapSubscriber(stream, resolve, reject);
       stream.internals.stream
-        .on('error', (error)  => {
-          wrappedSubscriber({ error: error })
-            .catch((error) => {
-              subscriberWritable.emit('error', error);
-            });
-        })
-        .pipe(subscriberWritable);
+        .on('data', wrappedSubscriber.data)
+        .on('end', wrappedSubscriber.end)
+        .on('error', wrappedSubscriber.error);
+      stream.internals.stream.resume();
     });
 
     stream.internals.consumer = subscribePromise;
