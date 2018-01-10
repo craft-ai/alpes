@@ -23,7 +23,7 @@ export interface Stream<T> {
 
 export type Reducer<T, AccumulationT> = (AccumulationT, Event<T>) => Promise<AccumulationT> | AccumulationT;
 export type ReducerTransformer<T, TransformedT, AccumulationT> = (Reducer<TransformedT, AccumulationT>) => Reducer<T, AccumulationT>;
-export type Seeder<AccumulationT> = () => AccumulationT;
+export type Seeder<AccumulationT> = () => ?AccumulationT;
 
 function transduce<T, TransformedT, AccumulationT>(
   transformer?: ReducerTransformer<T, TransformedT, AccumulationT>,
@@ -36,21 +36,20 @@ function transduce<T, TransformedT, AccumulationT>(
     return {
       data: (value) => {
         try {
-          const reducerResult = finalReducer(accumulation, { value });
-          if (reducerResult instanceof Promise) {
-            // The reducer result is a promise for the updated accumulation
+          if (accumulation instanceof Promise) {
+            // We only have a promise on the accumulation
             // -> Pause and resume after
             readableStream.pause();
-            reducerResult
-              .then((updatedAccumulation) => {
-                accumulation = updatedAccumulation;
+            accumulation = accumulation
+              .then((fulfilledAccumulation) => {
+                const updatedAccumulation = finalReducer(fulfilledAccumulation, { value });
                 readableStream.resume();
+                return updatedAccumulation;
               })
               .catch(onRejected);
           }
           else {
-            // The reducer result is the updated accumulation
-            accumulation = reducerResult;
+            accumulation = finalReducer(accumulation, { value });
           }
         }
         catch (error) {
@@ -58,22 +57,14 @@ function transduce<T, TransformedT, AccumulationT>(
         }
       },
       end: () => {
-        try {
-          Promise.resolve(finalReducer(accumulation, { done: true }))
-            .then(onFulfilled, onRejected);
-        }
-        catch (error) {
-          onRejected(error);
-        }
+        accumulation = Promise.resolve(accumulation)
+          .then((fulfilledAccumulation) => finalReducer(fulfilledAccumulation, { done: true }))
+          .then(onFulfilled, onRejected);
       },
       error: (error) => {
-        try {
-          Promise.resolve(finalReducer(accumulation, { error }))
-            .then(onFulfilled, onRejected);
-        }
-        catch (error) {
-          onRejected(error);
-        }
+        accumulation = Promise.resolve(accumulation)
+          .then((fulfilledAccumulation) => finalReducer(fulfilledAccumulation, { error }))
+          .then(onFulfilled, onRejected);
       }
     };
   };
