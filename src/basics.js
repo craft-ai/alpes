@@ -21,6 +21,81 @@ export interface Stream<T> {
   thru<R, Fn: (Stream<T>) => R>(f: Fn): R
 }
 
+export type Reducer<T, AccumulationT> = (AccumulationT, Event<T>) => Promise<AccumulationT> | AccumulationT;
+export type ReducerTransformer<T, TransformedT, AccumulationT> = (Reducer<TransformedT, AccumulationT>) => Reducer<T, AccumulationT>;
+export type Seeder<AccumulationT> = () => AccumulationT;
+
+function transduce<T, TransformedT, AccumulationT>(
+  transformer?: ReducerTransformer<T, TransformedT, AccumulationT>,
+  reducer: Reducer<TransformedT, AccumulationT>,
+  seeder: Seeder<AccumulationT>): (Stream<T>) => Promise<AccumulationT> {
+  const createListener = (readableStream, onFulfilled, onRejected) => {
+    let accumulation = seeder();
+    // $FlowFixMe it seems the T == TransformedT case is not well handled...
+    const finalReducer: Reducer<T, AccumulationT> = transformer ? transformer(reducer) : reducer;
+    return {
+      data: (value) => {
+        try {
+          const reducerResult = finalReducer(accumulation, { value });
+          if (reducerResult instanceof Promise) {
+            // The reducer result is a promise for the updated accumulation
+            // -> Pause and resume after
+            readableStream.pause();
+            reducerResult
+              .then((updatedAccumulation) => {
+                accumulation = updatedAccumulation;
+                readableStream.resume();
+              })
+              .catch(onRejected);
+          }
+          else {
+            // The reducer result is the updated accumulation
+            accumulation = reducerResult;
+          }
+        }
+        catch (error) {
+          onRejected(error);
+        }
+      },
+      end: () => {
+        try {
+          Promise.resolve(finalReducer(accumulation, { done: true }))
+            .then(onFulfilled, onRejected);
+        }
+        catch (error) {
+          onRejected(error);
+        }
+      },
+      error: (error) => {
+        try {
+          Promise.resolve(finalReducer(accumulation, { error }))
+            .then(onFulfilled, onRejected);
+        }
+        catch (error) {
+          onRejected(error);
+        }
+      }
+    };
+  };
+
+  return (stream) => {
+    if (stream.internals.consumer) {
+      throw new StreamError('Stream already being consumed.');
+    }
+    const transducerPromise = new Promise((resolve, reject) => {
+      const listener = createListener(stream.internals.stream, resolve, reject);
+      stream.internals.stream
+        .on('data', listener.data)
+        .on('end', listener.end)
+        .on('error', listener.error)
+        .resume();
+    });
+
+    stream.internals.consumer = transducerPromise;
+    return transducerPromise;
+  };
+}
+
 export type Push<T> = (Event<T>) => void;
 type PureTransformer<ConsumedT, ProducedT> = (event: Event<ConsumedT>, push: Push<ProducedT>) => Promise<void>;
 export type Transformer<ConsumedT, ProducedT, SeedT = void> = (event: Event<ConsumedT>, push: Push<ProducedT>, seed: ?SeedT) => ?SeedT | Promise<?SeedT>;
@@ -96,61 +171,13 @@ function transform<ConsumedT, ProducedT, SeedT>(transformer: Transformer<Consume
   };
 }
 
-type Subscriber<T> = (event: Event<T>) => void | Promise<void>;
+type Subscriber<T> = (event: Event<T>) => Promise<void> | void;
 
 function subscribe<T>(subscriber: Subscriber<T>): (Stream<T>) => Promise<void> {
-  const wrapSubscriber = (stream, onFulfilled, onRejected) => ({
-    data: (value) => {
-      try {
-        const subscriberResult = subscriber({ value });
-        if (subscriberResult instanceof Promise) {
-          stream.internals.stream.pause();
-          subscriberResult.then(() => {
-            stream.internals.stream.resume();
-          })
-            .catch(onRejected);
-        }
-      }
-      catch (error) {
-        onRejected(error);
-      }
-    },
-    end: () => {
-      try {
-        Promise.resolve(subscriber({ done: true }))
-          .then(onFulfilled, onRejected);
-      }
-      catch (error) {
-        onRejected(error);
-      }
-    },
-    error: (error) => {
-      try {
-        Promise.resolve(subscriber({ error }))
-          .then(onFulfilled, onRejected);
-      }
-      catch (error) {
-        onRejected(error);
-      }
-    }
-  });
-
-  return (stream) => {
-    if (stream.internals.consumer) {
-      throw new StreamError('Stream already being consumed.');
-    }
-    const subscribePromise = new Promise((resolve, reject) => {
-      const wrappedSubscriber = wrapSubscriber(stream, resolve, reject);
-      stream.internals.stream
-        .on('data', wrappedSubscriber.data)
-        .on('end', wrappedSubscriber.end)
-        .on('error', wrappedSubscriber.error);
-      stream.internals.stream.resume();
-    });
-
-    stream.internals.consumer = subscribePromise;
-    return subscribePromise;
-  };
+  return transduce(
+    undefined,
+    (_, event) => subscriber(event),
+    () => undefined);
 }
 
 function wrapReadableStream<T>(stream): Stream<T> {
@@ -166,7 +193,7 @@ function wrapReadableStream<T>(stream): Stream<T> {
 }
 
 type ProducerP<ProducedT, SeedT> = (push: Push<ProducedT>, seed: ?SeedT) => Promise<?SeedT>;
-type Producer<ProducedT, SeedT> = (push: Push<ProducedT>, seed: ?SeedT) => ?SeedT | Promise<?SeedT>;
+type Producer<ProducedT, SeedT> = (push: Push<ProducedT>, seed: ?SeedT) => Promise<?SeedT> | ?SeedT;
 
 function wrapProducer<ProducedT, SeedT>(producer: Producer<ProducedT, SeedT>, initialSeed: ?SeedT) {
   const wrappedProducer: ProducerP<ProducedT, SeedT> = wrapInPromise(producer);
