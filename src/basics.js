@@ -354,5 +354,6 @@ module.exports = {
   produce,
   subscribe,
   throwError,
+  transduce,
   transform
 };
