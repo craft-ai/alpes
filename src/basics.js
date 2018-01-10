@@ -11,7 +11,7 @@ type EventValue<T>  = {| value: T, done?: false |};
 export type Event<T> = EventDone | EventError | EventValue<T>;
 
 opaque type StreamInternals<T> = {
-  stream: stream.Readable,
+  stream: Promise<stream.Readable>,
   consumer?: any
 }
 
@@ -73,14 +73,15 @@ function transduce<T, TransformedT, AccumulationT>(
     if (stream.internals.consumer) {
       throw new StreamError('Stream already being consumed.');
     }
-    const transducerPromise = new Promise((resolve, reject) => {
-      const listener = createListener(stream.internals.stream, resolve, reject);
-      stream.internals.stream
-        .on('data', listener.data)
-        .on('end', listener.end)
-        .on('error', listener.error)
-        .resume();
-    });
+    const transducerPromise = stream.internals.stream
+      .then((readableStream) => new Promise((resolve, reject) => {
+        const listener = createListener(readableStream, resolve, reject);
+        readableStream
+          .on('data', listener.data)
+          .on('end', listener.end)
+          .on('error', listener.error)
+          .resume();
+      }));
 
     stream.internals.consumer = transducerPromise;
     return transducerPromise;
@@ -150,14 +151,17 @@ function transform<ConsumedT, ProducedT, SeedT>(transformer: Transformer<Consume
           .then(callback);
       }
     });
-    const transformedStream = wrapReadableStream(transformer);
+    const transformedStream = wrapReadableStream(stream.internals.stream
+      .then((readableStream) => {
+        readableStream
+          .on('error', (error)  => {
+            wrappedTransformer({ error: error }, createTransformerPush(transformer))
+              .catch((error) => transformer.emit('error', error));
+          })
+          .pipe(transformer);
+        return transformer;
+      }));
     stream.internals.consumer = transformedStream;
-    stream.internals.stream
-      .on('error', (error)  => {
-        wrappedTransformer({ error: error }, createTransformerPush(transformer))
-          .catch((error) => transformer.emit('error', error));
-      })
-      .pipe(transformer);
     return transformedStream;
   };
 }
@@ -171,9 +175,11 @@ function subscribe<T>(subscriber: Subscriber<T>): (Stream<T>) => Promise<void> {
     () => undefined);
 }
 
-function wrapReadableStream<T>(stream): Stream<T> {
+function wrapReadableStream<T>(stream: stream.Readable | Promise<stream.Readable>): Stream<T> {
   return {
-    internals: { stream },
+    internals: {
+      stream: stream instanceof Promise ? stream : Promise.resolve(stream)
+    },
     countConsumers() {
       return this.internals.consumer ? 1 : 0;
     },
