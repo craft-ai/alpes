@@ -10,41 +10,55 @@ type EventError  = {| error: Error, done?: false |};
 type EventValue<T>  = {| value: T, done?: false |};
 export type Event<T> = EventDone | EventError | EventValue<T>;
 
-opaque type InternalStream<T> = stream.Readable;
+const STREAM_STATUS = {
+  OPEN: 'OPEN',
+  DONE: 'DONE',
+  ERROR: 'ERROR'
+};
+
+type StreamStatus = $Keys<typeof STREAM_STATUS>;
 
 type SimpleProducer<ProducedT, SeedT> = (push: Push<ProducedT>, seed: ?SeedT) => ?SeedT;
 
-function createInternalStream<ProducedT, SeedT>(producer: SimpleProducer<ProducedT, SeedT> = (push) => {}, seed: ?SeedT): InternalStream<ProducedT> {
-  let currentSeed = seed;
-  return new Readable({
-    objectMode: true,
-    read() {
-      currentSeed = producer((event) => {
-        if (event.done) {
-          this.push(null);
-        }
-        else if (event.error) {
-          this.emit('error', event.error);
-        }
-        else {
-          // $FlowFixMe bug in the Readable type in flow, it does not support the object mode
-          this.push(event.value);
-        }
-      }, currentSeed);
+class InternalStream<T> extends Readable {
+  status: StreamStatus;
+  constructor(producer: SimpleProducer<T, void> = (push) => {}) {
+    super({
+      objectMode: true,
+      read() {
+        producer(this.pushEvent.bind(this));
+      }
+    });
+    this.status = STREAM_STATUS.OPEN;
+  }
+  pushEvent(event: Event<T>) {
+    if (this.status != STREAM_STATUS.OPEN) {
+      throw new StreamError('No event should be produced once the stream has ended.');
     }
-  });
+    else if (event.done) {
+      // console.log('InternalStream.pushEvent done');
+      this.status = STREAM_STATUS.DONE;
+      this.push(null);
+    }
+    else if (event.error) {
+      // console.log('InternalStream.pushEvent', event.error.toString());
+      this.status = STREAM_STATUS.ERROR;
+      // $FlowFixMe bug in the Readable type in flow, it does not support the object mode
+      this.push(event);
+      this.push(null);
+    }
+    else {
+      // console.log('InternalStream.pushEvent', event.value);
+      // $FlowFixMe bug in the Readable type in flow, it does not support the object mode
+      this.push(event);
+    }
+  }
 }
 
-function appendInternalStream<T>(stream: InternalStream<T>, event: Event<T>): InternalStream<T> {
-  if (event.done) {
-    stream.push(null);
-  }
-  else if (event.error) {
-    stream.emit('error', event.error);
-  }
-  else {
-    // $FlowFixMe bug in the Readable type in flow, it does not support the object mode
-    stream.push(event.value);
+function reduceInternalStream<T>(stream: InternalStream<T>, event: Event<T>): InternalStream<T> {
+  // Only push when the stream is open !
+  if (stream.status == STREAM_STATUS.OPEN) {
+    stream.pushEvent(event);
   }
   return stream;
 }
@@ -68,69 +82,89 @@ function transduce<T, TransformedT, AccumulationT>(
   transformer?: ReducerTransformer<T, TransformedT, AccumulationT>,
   reducer: Reducer<TransformedT, AccumulationT>,
   seeder: Seeder<AccumulationT>): (Stream<T>) => Promise<AccumulationT> {
-  const createListener = (readableStream, onFulfilled, onRejected) => {
+
+  const consumeStream = (stream) => new Promise((resolve, reject) => {
     let accumulation = seeder();
     // $FlowFixMe it seems the T == TransformedT case is not well handled...
     const finalReducer: Reducer<T, AccumulationT> = transformer ? transformer(reducer) : reducer;
-    return {
-      data: (value) => {
+
+    const removeListeners = () => {
+      stream.removeListener('data', onData);
+      stream.removeListener('end', onEnd);
+    };
+    const onData = (event) => {
+      if (!event) {
+        console.log('transduce listener empty event');
+      }
+      else if (event.error) {
+        // console.log('transduce listener error', event.error.toString());
+
+        removeListeners();
+
+        accumulation = Promise.resolve(accumulation)
+          .then((fulfilledAccumulation) => {
+            return finalReducer(fulfilledAccumulation, event);
+          })
+          .then(resolve, reject);
+      }
+      else {
+        // console.log('transduce listener value', event.value);
         try {
           if (accumulation instanceof Promise) {
             // We only have a promise on the accumulation
             // -> Pause and resume after
-            readableStream.pause();
+            stream.pause();
             accumulation = accumulation
               .then((fulfilledAccumulation) => {
-                const updatedAccumulation = finalReducer(fulfilledAccumulation, { value });
-                readableStream.resume();
+                const updatedAccumulation = finalReducer(fulfilledAccumulation, event);
+                stream.resume();
                 return updatedAccumulation;
               })
-              .catch(onRejected);
+              .catch((error) => {
+                removeListeners();
+                reject(error);
+              });
           }
           else {
-            accumulation = finalReducer(accumulation, { value });
+            accumulation = finalReducer(accumulation, event);
           }
         }
         catch (error) {
-          onRejected(error);
+          removeListeners();
+          accumulation = Promise.reject(error);
+          reject(error);
         }
-      },
-      end: () => {
-        // console.log('transduce listener end');
-        accumulation = Promise.resolve(accumulation)
-          .then((fulfilledAccumulation) => finalReducer(fulfilledAccumulation, { done: true }))
-          .then(onFulfilled, onRejected);
-      },
-      error: (error) => {
-        // console.log('transduce listener error', error.toString());
-        accumulation = Promise.resolve(accumulation)
-          .then((fulfilledAccumulation) => finalReducer(fulfilledAccumulation, { error }))
-          .then(onFulfilled, onRejected);
       }
     };
-  };
+
+    const onEnd = () => {
+      // console.log('transduce listener end');
+
+      removeListeners();
+
+      accumulation = Promise.resolve(accumulation)
+        .then((fulfilledAccumulation) => finalReducer(fulfilledAccumulation, { done: true }))
+        .then(resolve, reject);
+    };
+
+    stream
+      .on('data', onData)
+      .on('end', onEnd)
+      .resume();
+  });
 
   return (stream) => {
     if (stream.internals.consumer) {
       throw new StreamError('Stream already being consumed.');
     }
-    const transducerPromise = stream.internals.stream
-      .then((readableStream) => new Promise((resolve, reject) => {
-        const listener = createListener(readableStream, resolve, reject);
-        readableStream
-          .on('data', listener.data)
-          .on('error', listener.error)
-          .on('end', listener.end)
-          .resume();
-      }));
-
+    const transducerPromise = stream.internals.stream.then(consumeStream);
     stream.internals.consumer = transducerPromise;
     return transducerPromise;
   };
 }
 
 function transduceToStream<ConsumedT, ProducedT>(transformer: ReducerTransformer<ConsumedT, ProducedT, any>): (Stream<ConsumedT>) => Stream<ProducedT> {
-  const transducer = transduce(transformer, appendInternalStream, createInternalStream);
+  const transducer = transduce(transformer, reduceInternalStream, () => new InternalStream());
   return (stream) => wrapReadableStream(transducer(stream));
 }
 
@@ -186,88 +220,77 @@ function wrapReadableStream<T>(stream: stream.Readable | Promise<stream.Readable
 export type Producer<ProducedT, SeedT> = (push: Push<ProducedT>, seed: ?SeedT) => ?SeedT | Promise<?SeedT>;
 
 function produce<ProducedT, SeedT>(producer: Producer<ProducedT, SeedT>, seed: ?SeedT): Stream<ProducedT> {
-  return wrapReadableStream(createInternalStream(
-    (push, currentSeed) => {
+  let currentSeed = seed;
+  return wrapReadableStream(new InternalStream(
+    (push) => {
       if (currentSeed instanceof Promise) {
-        return currentSeed.then((seed) => producer(push, seed));
+        currentSeed = currentSeed
+          .then((seed) => producer(push, seed))
+          .catch((error) => push({ error }));
       }
       else {
-        currentSeed = producer(push, currentSeed);
-        return currentSeed;
+        try {
+          currentSeed = producer(push, currentSeed);
+        }
+        catch (error) {
+          push({ error });
+        }
       }
-    },
-    seed
+    }
   ));
 }
 
-function infinite<T>(): Stream<T> {
-  return produce((push) => {});
+function fromReadable<T>(readable: stream.Readable): Stream<T> {
+  const internalStream = new InternalStream();
+  const dataListener = (value) => {
+    internalStream.pushEvent({ value });
+  };
+  const errorListener = (error) => {
+    internalStream.pushEvent({ error });
+    readable
+      .removeListener('data', dataListener)
+      .removeListener('error', errorListener)
+      .removeListener('end', endListener);
+  };
+  const endListener = () => {
+    internalStream.pushEvent({ done: true });
+    readable
+      .removeListener('data', dataListener)
+      .removeListener('error', errorListener)
+      .removeListener('end', endListener);
+  };
+  readable
+    .on('data', dataListener)
+    .on('error', errorListener)
+    .on('end', endListener)
+    .resume();
+
+  return wrapReadableStream(internalStream);
 }
 
-function append<T>(stream: Stream<T>, event: Event<T>): Stream<T> {
-  stream.internals.stream
-    .then((readableStream) => {
-      if (event.done) {
-        readableStream.push(null);
-      }
-      else if (event.error) {
-        readableStream.emit('error', event.error);
+function fromIterable<T>(iterable: Iterable<T>): Stream<T> {
+  // $FlowFixMe bug in the Iterable type of flow (cf. https://github.com/facebook/flow/issues/1163)
+  const iterator: Iterator<T> = iterable[Symbol.iterator]();
+  return wrapReadableStream(new InternalStream(
+    (push) => {
+      const { done, value } = iterator.next();
+      if (done) {
+        push({ done: true });
       }
       else {
-        // $FlowFixMe bug in the Readable type in flow, it does not support the object mode
-        readableStream.push(event.value);
+        push({ value });
       }
-    });
-  return stream;
-}
-
-function isIterable(obj) {
-  if (!obj) {
-    return false;
-  }
-  // $FlowFixMe bug in the Iterable type of flow (cf. https://github.com/facebook/flow/issues/1163)
-  return typeof obj[Symbol.iterator] === 'function';
+    }
+  ));
 }
 
 function from<T>(input: Iterable<T> | stream.Readable): Stream<T> {
   if (input instanceof Readable) {
-    let stream = infinite();
-    const dataListener = (value) => append(stream, { value });
-    const errorListener = (error) => {
-      append(stream, { error });
-      input
-        .removeListener('data', dataListener)
-        .removeListener('error', errorListener)
-        .removeListener('end', endListener);
-    };
-    const endListener = () => {
-      append(stream, { done: true });
-      input
-        .removeListener('data', dataListener)
-        .removeListener('error', errorListener)
-        .removeListener('end', endListener);
-    };
-    input
-      .on('data', dataListener)
-      .on('error', errorListener)
-      .on('end', endListener)
-      .resume();
-    return stream;
+    return fromReadable(input);
   }
-  else if (isIterable(input)) {
-    // $FlowFixMe bug in the Iterable type of flow (cf. https://github.com/facebook/flow/issues/1163)
-    const iterator: Iterator<T> = input[Symbol.iterator]();
-    return wrapReadableStream(createInternalStream(
-      (push) => {
-        const { done, value } = iterator.next();
-        if (done) {
-          push({ done: true });
-        }
-        else {
-          push({ value });
-        }
-      }
-    ));
+  // $FlowFixMe bug in the Iterable type of flow (cf. https://github.com/facebook/flow/issues/1163)
+  else if (input && typeof input[Symbol.iterator] === 'function') {
+    return fromIterable(input);
   }
   else {
     return throwError(new StreamError('Unable to create a stream, \'from\' only supports iterable or Readable stream.'));
@@ -275,7 +298,7 @@ function from<T>(input: Iterable<T> | stream.Readable): Stream<T> {
 }
 
 function of<T>(...args: T[]): Stream<T> {
-  return from(args);
+  return fromIterable(args);
 }
 
 function throwError<T>(error: Error): Stream<T> {
