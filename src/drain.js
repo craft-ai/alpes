@@ -4,23 +4,21 @@ const { transduce } = require('./basics');
 import type { Stream } from './basics';
 
 function drain<T>(): (Stream<T>) => Promise<void> {
+  const nothing: void = undefined;
   return transduce(
     undefined,
-    (drainPromise, event) => {
-      if (drainPromise) {
-        return drainPromise;
-      }
-      else if (event.error) {
-        return Promise.reject(event.error);
+    (accumulation, event) => {
+      if (event.error) {
+        throw event.error;
       }
       else if (event.done) {
-        return Promise.resolve();
+        return { accumulation, done: true };
       }
       else {
-        return undefined;
+        return { accumulation, done: false };
       }
     },
-    () => undefined);
+    () => nothing);
 }
 
 module.exports = {

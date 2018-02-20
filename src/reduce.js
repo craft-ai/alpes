@@ -13,10 +13,16 @@ function reduce<ConsumedT, ProducedT>(reducer: Reducer<ConsumedT, ProducedT>, se
         throw event.error;
       }
       else if (event.done) {
-        return accumulation;
+        return { accumulation, done: true };
       }
       else {
-        return reducer(accumulation, event.value);
+        const result = reducer(accumulation, event.value);
+        if (result instanceof Promise) {
+          return result.then((accumulation) => ({ accumulation, done: false }));
+        }
+        else {
+          return { accumulation: result, done: false };
+        }
       }
     },
     () => seed);
