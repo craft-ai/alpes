@@ -93,12 +93,8 @@ function transduce<T, TransformedT, AccumulationT>(
       stream.removeListener('end', onEnd);
     };
     const onData = (event) => {
-      if (!event) {
-        console.log('transduce listener empty event');
-      }
-      else if (event.error) {
+      if (event.error) {
         // console.log('transduce listener error', event.error.toString());
-
         removeListeners();
 
         accumulation = Promise.resolve(accumulation)
@@ -109,37 +105,39 @@ function transduce<T, TransformedT, AccumulationT>(
       }
       else {
         // console.log('transduce listener value', event.value);
-        try {
-          if (accumulation instanceof Promise) {
-            // We only have a promise on the accumulation
-            // -> Pause and resume after
-            stream.pause();
-            accumulation = accumulation
-              .then((fulfilledAccumulation) => {
-                const updatedAccumulation = finalReducer(fulfilledAccumulation, event);
-                stream.resume();
-                return updatedAccumulation;
-              })
-              .catch((error) => {
-                removeListeners();
-                reject(error);
-              });
-          }
-          else {
+        if (accumulation instanceof Promise) {
+          // We only have a promise on the accumulation
+          // -> Pause and resume after
+          stream.pause();
+          accumulation = accumulation
+            .then((fulfilledAccumulation) => {
+              const updatedAccumulation = finalReducer(fulfilledAccumulation, event);
+              stream.resume();
+              return updatedAccumulation;
+            })
+            .catch((error) => {
+              // console.log('transduce reducer async error', error.toString());
+              removeListeners();
+              reject(error);
+            });
+        }
+        else {
+          try {
             accumulation = finalReducer(accumulation, event);
           }
-        }
-        catch (error) {
-          removeListeners();
-          accumulation = Promise.reject(error);
-          reject(error);
+          catch (error) {
+            // console.log('transduce reducer sync error', error.toString());
+            stream.pause();
+            removeListeners();
+            accumulation = Promise.reject(error);
+            reject(error);
+          }
         }
       }
     };
 
     const onEnd = () => {
       // console.log('transduce listener end');
-
       removeListeners();
 
       accumulation = Promise.resolve(accumulation)
