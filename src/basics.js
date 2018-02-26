@@ -18,27 +18,30 @@ const STREAM_STATUS = {
 
 type StreamStatus = $Keys<typeof STREAM_STATUS>;
 
-type SimpleProducer<ProducedT, SeedT> = (push: Push<ProducedT>, seed: ?SeedT) => ?SeedT;
+export type Push<T> = (Event<T>) => boolean;
+type InternalStreamProducer<ProducedT> = (push: Push<ProducedT>, context: { status: StreamStatus }) => void;
 
 class InternalStream<T> extends Readable {
   status: StreamStatus;
-  constructor(producer: SimpleProducer<T, void> = (push) => {}) {
+  constructor(producer: InternalStreamProducer<T> = (push) => {}) {
     super({
       objectMode: true,
       read() {
-        producer(this.pushEvent.bind(this));
+        producer(this.pushEvent.bind(this), this);
       }
     });
     this.status = STREAM_STATUS.OPEN;
   }
-  pushEvent(event: Event<T>) {
+  pushEvent(event: Event<T>): boolean {
     if (this.status != STREAM_STATUS.OPEN) {
+      // console.log('InternalStream.pushEvent push when not open', event);
       throw new StreamError('No event should be produced once the stream has ended.');
     }
     else if (event.done) {
       // console.log('InternalStream.pushEvent done');
       this.status = STREAM_STATUS.DONE;
       this.push(null);
+      return false;
     }
     else if (event.error) {
       // console.log('InternalStream.pushEvent', event.error.toString());
@@ -46,11 +49,12 @@ class InternalStream<T> extends Readable {
       // $FlowFixMe bug in the Readable type in flow, it does not support the object mode
       this.push(event);
       this.push(null);
+      return false;
     }
     else {
       // console.log('InternalStream.pushEvent', event.value);
       // $FlowFixMe bug in the Readable type in flow, it does not support the object mode
-      this.push(event);
+      return this.push(event);
     }
   }
 }
@@ -60,11 +64,14 @@ export type Reducer<T, AccumulationT> = (AccumulationT, Event<T>) => ReducerResu
 
 function reduceInternalStream<T>(stream: InternalStream<T>, event: Event<T>): ReducerResult<InternalStream<T>> {
   // Only push when the stream is open !
-  if (stream.status == STREAM_STATUS.OPEN) {
-    stream.pushEvent(event);
+  if (stream.status != STREAM_STATUS.OPEN) {
+    return { accumulation: stream, done: true };
   }
-  const done = event.done || (event.error && true);
-  return { accumulation: stream, done };
+  else {
+    stream.pushEvent(event);
+    const done = event.done || (event.error && true);
+    return { accumulation: stream, done };
+  }
 }
 
 opaque type StreamInternals<T> = {
@@ -185,7 +192,6 @@ function transduceToStream<ConsumedT, ProducedT>(transformer: ReducerTransformer
   return (stream) => wrapReadableStream(transducer(stream));
 }
 
-export type Push<T> = (Event<T>) => void;
 export type Transformer<ConsumedT, ProducedT, SeedT = void> = (event: Event<ConsumedT>, push: Push<ProducedT>, seed: ?SeedT) => ?SeedT | Promise<?SeedT>;
 
 function transform<ConsumedT, ProducedT, SeedT>(transformer: Transformer<ConsumedT, ProducedT, SeedT>, seed: ?SeedT): (Stream<ConsumedT>) => Stream<ProducedT> {
@@ -201,6 +207,7 @@ function transform<ConsumedT, ProducedT, SeedT>(transformer: Transformer<Consume
           result = result
             .then(({ accumulation }) => reducer(accumulation, producedEvent))
             .then(({ accumulation }) => ({ accumulation, done }));
+          return !done;
         },
         currentSeed)
         .then((newSeed) => {
@@ -253,23 +260,28 @@ export type Producer<ProducedT, SeedT> = (push: Push<ProducedT>, seed: ?SeedT) =
 
 function produce<ProducedT, SeedT>(producer: Producer<ProducedT, SeedT>, seed: ?SeedT): Stream<ProducedT> {
   let currentSeed = seed;
-  return wrapReadableStream(new InternalStream(
-    (push) => {
-      if (currentSeed instanceof Promise) {
-        currentSeed = currentSeed
-          .then((seed) => producer(push, seed))
-          .catch((error) => push({ error }));
+  const internalProducer: InternalStreamProducer<ProducedT> = (push, context) => {
+    if (currentSeed instanceof Promise) {
+      currentSeed = currentSeed
+        .then((seed) => {
+          if (context.status == STREAM_STATUS.OPEN) {
+            return producer(push, seed);
+          }
+          return seed;
+        })
+        .catch((error) => { push({ error }); });
+    }
+    else {
+      try {
+        currentSeed = producer(push, currentSeed);
       }
-      else {
-        try {
-          currentSeed = producer(push, currentSeed);
-        }
-        catch (error) {
-          push({ error });
-        }
+      catch (error) {
+        push({ error });
       }
     }
-  ));
+  };
+
+  return wrapReadableStream(new InternalStream(internalProducer));
 }
 
 function fromReadable<T>(readable: stream.Readable): Stream<T> {
@@ -305,12 +317,16 @@ function fromIterable<T>(iterable: Iterable<T>): Stream<T> {
   const iterator: Iterator<T> = iterable[Symbol.iterator]();
   return wrapReadableStream(new InternalStream(
     (push) => {
-      const { done, value } = iterator.next();
-      if (done) {
-        push({ done: true });
-      }
-      else {
-        push({ value });
+      let continueProduction = true;
+      while (continueProduction) {
+        const { done, value } = iterator.next();
+        if (done) {
+          push({ done: true });
+          continueProduction = false;
+        }
+        else {
+          continueProduction = push({ value });
+        }
       }
     }
   ));
