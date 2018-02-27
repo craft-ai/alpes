@@ -10,16 +10,12 @@ import type stream from 'stream';
 export interface Stream<T> {
   stream: Promise<InternalStream<T>>,
   consumer?: any,
-  countConsumers(): number,
   thru<R, Fn: (Stream<T>) => R>(f: Fn): R
 }
 
 function createStream<T>(stream: InternalStream<T> | Promise<InternalStream<T>>): Stream<T> {
   return {
     stream: stream instanceof Promise ? stream : Promise.resolve(stream),
-    countConsumers() {
-      return this.internals.consumer ? 1 : 0;
-    },
     thru<R, Fn: (Stream<T>) => R>(f: Fn): R {
       return f(this);
     }
