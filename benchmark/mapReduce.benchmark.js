@@ -16,10 +16,39 @@ const addOne = (x) => x + 1;
 const sum = (x, y) => x + y;
 
 benchmark(`map -> reduce (${data} items)`)
-  .add('alpes', wrapRunner(() =>
+  .add('alpes (map and reduce)', wrapRunner(() =>
     alpes.from(data)
       .thru(alpes.map(addOne))
       .thru(alpes.reduce(sum, 0))),
+  options)
+  .add('alpes (transduce)', wrapRunner(() =>
+    alpes.from(data)
+      .thru(alpes.transduce(
+        (reducer) => (accumulation, event) => {
+          if (event.done || event.error) {
+            return reducer(accumulation, event);
+          }
+          else {
+            return reducer(accumulation, {
+              value: addOne(event.value)
+            });
+          }
+        },
+        (accumulation, event) => {
+          if (event.done) {
+            return { accumulation, done: true };
+          }
+          else if (event.error) {
+            throw event.error;
+          }
+          else {
+            return {
+              accumulation: sum(accumulation, event.value),
+              done: false
+            };
+          }
+        },
+        () => 0))),
   options)
   .add('node streams', wrapRunner(() => new Promise((resolve, reject) => {
     const iterator = data[Symbol.iterator]();
