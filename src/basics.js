@@ -102,7 +102,6 @@ function transduce<T, TransformedT, AccumulationT>(
           catch (error) {
             // console.log('transduce reducer sync error', error.toString());
             finish();
-            result = Promise.reject(error);
             reject(error);
           }
         }

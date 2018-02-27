@@ -22,7 +22,7 @@ test('The reduce function can retrieve a promise', (t) => {
 });
 
 // Skipped because Ava triggers 'Unhandled Rejection' for no reason it seems
-test.skip('The reduce function can throw', (t) => {
+test('The reduce function can throw', (t) => {
   return t.throws(
     of(1, 2, 3).thru(reduce((acc, v) => {
       if (v == 2) {
