@@ -126,15 +126,9 @@ function transduce<T, TransformedT, AccumulationT>(
 }
 
 function reduceInternalStream<T>(stream: InternalStream<T>, event: Event<T>): ReducerResult<InternalStream<T>> {
-  // Only push when the stream is open !
-  if (stream.status != STREAM_STATUS.OPEN) {
-    return { accumulation: stream, done: true };
-  }
-  else {
-    stream.pushEvent(event);
-    const done = event.done || (event.error && true);
-    return { accumulation: stream, done };
-  }
+  stream.pushEvent(event);
+  const done = event.done || (event.error && true);
+  return { accumulation: stream, done };
 }
 
 function transduceToStream<ConsumedT, ProducedT>(transformer: ReducerTransformer<ConsumedT, ProducedT, any>): (Stream<ConsumedT>) => Stream<ProducedT> {
