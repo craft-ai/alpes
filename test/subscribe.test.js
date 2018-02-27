@@ -9,6 +9,7 @@ test('Handles the backpressure', (t) => {
   const LIMIT = 100;
   let done = false;
   return produce((push, next) => {
+    //console.log(`${value} ->`);
     push({ value: value++ });
     if (value > LIMIT) {
       push({ done: true });
@@ -16,9 +17,10 @@ test('Handles the backpressure', (t) => {
   })
     .thru(subscribe((event) => {
       if (event.value) {
+        //console.log(`-> ${event.value}`);
         t.is(event.value, expectedValue);
         ++expectedValue;
-        return delay(50);
+        return delay(100);
       }
       else if (event.done) {
         done = true;

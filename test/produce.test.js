@@ -6,10 +6,10 @@ import { drain, produce, StreamError, tap, transform } from '../src';
 test('Finite streams can be produced', (t) => {
   const observedArray = [];
   return produce((push) => {
-    push({ value: 1 });
-    push({ value: 2 });
-    push({ value: 3 });
-    push({ done: true });
+    t.true(push({ value: 1 }));
+    t.true(push({ value: 2 }));
+    t.true(push({ value: 3 }));
+    t.false(push({ done: true }));
   })
     .thru(tap((v) => observedArray.push(v)))
     .thru(drain())
@@ -31,6 +31,37 @@ test('Pauses the production if there is a slow consumer', (t) => {
     }))
     .thru(drain())
     .then(() => t.is(observedCount, 201));
+});
+
+test('Pauses the production if there is a slow consumer (second version)', (t) => {
+  const totalCount = 500;
+  let observedCount = 0;
+  let producedCount = 0;
+  return produce((push) => {
+    for (; producedCount < totalCount ; ++producedCount) {
+      if (!push({ value: `hop #${producedCount}` })) {
+        ++producedCount;
+        return;
+      }
+    }
+    push({ done: true });
+  })
+    .thru(transform((event, push) => {
+      return delay(10).then(() => {
+        if (!event.done) {
+          observedCount++;
+          t.true(observedCount <= producedCount);
+          // Keep a maximum lag between the producer and observer
+          t.true(producedCount - observedCount < 20);
+          t.true(push(event));
+        }
+        else {
+          t.false(push(event));
+        }
+      });
+    }))
+    .thru(drain())
+    .then(() => t.is(observedCount, totalCount));
 });
 
 test('Finite streams with errors can be produced', (t) => {
@@ -56,7 +87,7 @@ test('Finite streams with errors can be produced (second version)', (t) => {
   const observedArray = [];
   let value = 0;
   return t.throws(
-    produce((push, next) => {
+    produce((push) => {
       push({ value: value++ });
       if (value > 4) {
         throw new Error('my cool error');

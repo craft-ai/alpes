@@ -1,12 +1,17 @@
 // @flow
 import test from 'ava';
-import { drain, map, of, subscribe, throwError } from '../src';
+import { drain, from, map, of, subscribe, throwError } from '../src';
 
 test('Mapped function is applied to all the value in the stream', (t) => {
   let iFrom = 0;
   let iTransformed = 0;
-  t.plan(6);
-  return of(0, 1, 2)
+  const size = 2000;
+  let data = new Array(size);
+  for (let i = 0; i < data.length; ++i) {
+    data[i] = i;
+  }
+  t.plan(size * 2);
+  return from(data)
     .thru(map((v) => {
       t.is(v, iFrom);
       ++iFrom;

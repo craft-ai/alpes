@@ -1,289 +1,274 @@
 // @flow
-const { Readable, Transform, Writable } = require('stream');
+const { Readable } = require('stream');
 const { StreamError } = require('./errors');
 const { wrapInPromise } = require('./utils');
+const { InternalStream, STREAM_STATUS } = require('./internalStream');
 
+import type { Event, Producer as InternalStreamProducer, Push } from './internalStream';
 import type stream from 'stream';
 
-type EventDone = {| done: true |};
-type EventError  = {| error: Error, done?: false |};
-type EventValue<T>  = {| value: T, done?: false |};
-export type Event<T> = EventDone | EventError | EventValue<T>;
-
-opaque type StreamInternals<T> = {
-  stream: stream.Readable,
-  consumer?: any
-}
-
 export interface Stream<T> {
-  internals: StreamInternals<T>,
-  countConsumers(): number,
+  stream: Promise<InternalStream<T>>,
+  consumer?: any,
   thru<R, Fn: (Stream<T>) => R>(f: Fn): R
 }
 
-export type Push<T> = (Event<T>) => void;
-type PureTransformer<ConsumedT, ProducedT> = (event: Event<ConsumedT>, push: Push<ProducedT>) => Promise<void>;
-export type Transformer<ConsumedT, ProducedT, SeedT = void> = (event: Event<ConsumedT>, push: Push<ProducedT>, seed: ?SeedT) => ?SeedT | Promise<?SeedT>;
-
-function createTransformerFactory<ConsumedT, ProducedT, SeedT>(transformer: Transformer<ConsumedT, ProducedT, SeedT>, initialSeed: ?SeedT): () => PureTransformer<ConsumedT, ProducedT>{
-  const wrappedTransformer = wrapInPromise(transformer);
-  return () => {
-    let currentSeed = initialSeed;
-    return (event, push) => wrappedTransformer(event, push, currentSeed)
-      .then((newSeed) => {
-        currentSeed = newSeed;
-      });
-  };
-}
-
-function createTransformerPush<T>(stream: stream.Transform, { disableDone } = {}): Push<T> {
-  const onError = (event: EventError) => {
-    stream.emit('error', event.error);
-  };
-  const onDone = disableDone ?
-    (event: EventDone) => undefined :
-    (event: EventDone) => {
-      stream.emit('end');
-      stream.emit('finish');
-    };
-  const onValue = (event: EventValue<T>) => {
-    // $FlowFixMe bug in the Readable type in flow, it does not support the object mode
-    stream.push(event.value);
-  };
-  return (event: Event<T>) => {
-    if (event.error) {
-      onError(event);
-    }
-    else if (event.done) {
-      onDone(event);
-    }
-    else {
-      onValue(event);
-    }
-  };
-}
-
-function transform<ConsumedT, ProducedT, SeedT>(transformer: Transformer<ConsumedT, ProducedT, SeedT>, seed: ?SeedT): (Stream<ConsumedT>) => Stream<ProducedT> {
-  const transformerFactory = createTransformerFactory(transformer, seed);
-
-  return (stream: Stream<ConsumedT>) => {
-    if (stream.internals.consumer) {
-      throw new StreamError('Stream already being consumed.');
-    }
-    const wrappedTransformer = transformerFactory();
-    const transformer = new Transform({
-      objectMode: true,
-      transform(chunk, encoding, callback) {
-        wrappedTransformer({ value: chunk }, createTransformerPush(this))
-          .catch((error) => this.emit('error', error))
-          .then(callback);
-      },
-      flush(callback) {
-        wrappedTransformer({ done: true }, createTransformerPush(this, { disableDone: true }))
-          .catch((error) => this.emit('error', error))
-          .then(callback);
-      }
-    });
-    const transformedStream = wrapReadableStream(transformer);
-    stream.internals.consumer = transformedStream;
-    stream.internals.stream
-      .on('error', (error)  => {
-        wrappedTransformer({ error: error }, createTransformerPush(transformer))
-          .catch((error) => transformer.emit('error', error));
-      })
-      .pipe(transformer);
-    return transformedStream;
-  };
-}
-
-type Subscriber<T> = (event: Event<T>) => void | Promise<void>;
-
-function subscribe<T>(subscriber: Subscriber<T>): (Stream<T>) => Promise<void> {
-  return (stream) => {
-    if (stream.internals.consumer) {
-      throw new StreamError('Stream already being consumed.');
-    }
-    const wrappedSubscriber = wrapInPromise(subscriber);
-    const subscribePromise = new Promise((resolve, reject) => {
-      const subscriberWritable = new Writable({
-        objectMode: true,
-        write(chunk, encoding, callback) {
-          wrappedSubscriber({ value: chunk })
-            .then(callback)
-            .catch(callback);
-        }
-      })
-        .on('finish', () => {
-          wrappedSubscriber({ done: true })
-            .then(resolve)
-            .catch(reject);
-        })
-        .on('error', reject);
-
-      stream.internals.stream
-        .on('error', (error)  => {
-          wrappedSubscriber({ error: error })
-            .catch((error) => {
-              subscriberWritable.emit('error', error);
-            });
-        })
-        .pipe(subscriberWritable);
-    });
-
-    stream.internals.consumer = subscribePromise;
-    return subscribePromise;
-  };
-}
-
-function wrapReadableStream<T>(stream): Stream<T> {
+function createStream<T>(stream: InternalStream<T> | Promise<InternalStream<T>>): Stream<T> {
   return {
-    internals: { stream },
-    countConsumers() {
-      return this.internals.consumer ? 1 : 0;
-    },
+    stream: stream instanceof Promise ? stream : Promise.resolve(stream),
     thru<R, Fn: (Stream<T>) => R>(f: Fn): R {
       return f(this);
     }
   };
 }
 
-type ProducerP<ProducedT, SeedT> = (push: Push<ProducedT>, seed: ?SeedT) => Promise<?SeedT>;
-type Producer<ProducedT, SeedT> = (push: Push<ProducedT>, seed: ?SeedT) => ?SeedT | Promise<?SeedT>;
+export type ReducerResult<T> = Promise<{| accumulation: T, done: ?boolean |}> | {| accumulation: T, done: ?boolean |}
+export type Reducer<T, AccumulationT> = (AccumulationT, Event<T>) => ReducerResult<AccumulationT>;
+export type ReducerTransformer<T, TransformedT, AccumulationT> = (Reducer<TransformedT, AccumulationT>) => Reducer<T, AccumulationT>;
+export type Seeder<AccumulationT> = () => AccumulationT;
 
-function wrapProducer<ProducedT, SeedT>(producer: Producer<ProducedT, SeedT>, initialSeed: ?SeedT) {
-  const wrappedProducer: ProducerP<ProducedT, SeedT> = wrapInPromise(producer);
-  return (stream: Readable) => {
-    const theInitialSeed: ?SeedT = initialSeed;
-    return ({ buffer = [], productionEnded = false, seed = theInitialSeed } = {}) => {
-      // Even when paused one push is needed.
-      let expectPush = true;
-      // 1 - Let's deal with remaining events
-      while (buffer.length > 0 && expectPush) {
-        const event = buffer.shift();
-        if (event.error) {
-          stream.emit('error', event.error);
-          return { buffer: [], productionEnded, seed: (undefined: ?SeedT) };
-        }
-        else if (event.done) {
-          stream.push(null);
-          return { buffer: [], productionEnded, seed: (undefined: ?SeedT) };
-        }
-        else {
-          // $FlowFixMe bug in the Readable type in flow, it does not support the object mode
-          expectPush = stream.push(event.value);
-        }
-      }
-      // 2 - And now the new ones
-      if (productionEnded) {
-        return { buffer, productionEnded, seed };
-      }
-      return wrappedProducer(
-        (event: Event<ProducedT>) => {
-          if (productionEnded) {
-            throw new StreamError('No event should be produced once the stream has ended.');
-          }
-          else if (event.error) {
-            if (!expectPush) {
-              buffer.push(event);
-            }
-            else {
-              stream.emit('error', event.error);
-            }
-            productionEnded = true;
-          }
-          else if (event.done) {
-            if (!expectPush) {
-              buffer.push(event);
-            }
-            else {
-              stream.push(null);
-            }
-            productionEnded = true;
-          }
-          else {
-            if (!expectPush) {
-              buffer.push(event);
-            }
-            else {
-              // $FlowFixMe bug in the Readable type in flow, it does not support the object mode
-              expectPush = stream.push(event.value);
-            }
-          }
-        // $FlowFixMe not sure why this doesn't work here...
-        }, seed)
-        .then((seed: ?SeedT) => ({ buffer, productionEnded, seed }))
-        .catch((error) => {
-          if (productionEnded) {
-            throw error;
-          }
-          else if (expectPush) {
-            stream.emit('error', error);
-            return { buffer: [], productionEnded: true, seed: (undefined: ?SeedT) };
-          }
-          else {
-            buffer.push({ error });
-            return { buffer, productionEnded: true, seed: (undefined: ?SeedT) };
-          }
-        });
+function transduce<T, TransformedT, AccumulationT>(
+  transformer?: ReducerTransformer<T, TransformedT, AccumulationT>,
+  reducer: Reducer<TransformedT, AccumulationT>,
+  seeder: Seeder<AccumulationT>): (Stream<T>) => Promise<AccumulationT> {
+
+  const consumeStream = (stream) => new Promise((resolve, reject) => {
+    let result : ReducerResult<AccumulationT> = { accumulation: seeder(), done: false };
+    // $FlowFixMe it seems the T == TransformedT case is not well handled...
+    const finalReducer: Reducer<T, AccumulationT> = transformer ? transformer(reducer) : reducer;
+
+    const start = () => {
+      stream
+        .on('data', onData)
+        .on('end', onEnd)
+        .resume();
     };
+    const finish = () => {
+      stream
+        .pause()
+        .removeListener('data', onData)
+        .removeListener('end', onEnd);
+    };
+    const onData = (event) => {
+      if (event.error) {
+        // console.log('transduce listener error', event.error.toString());
+        finish();
+
+        result = Promise.resolve(result).then(({ accumulation, done }) => finalReducer(accumulation, event));
+        result.then(resolve, reject);
+      }
+      else {
+        // console.log('transduce listener value', event.value);
+        if (result instanceof Promise) {
+          // We only have a promise on the accumulation
+          // -> Pause and resume after
+          stream.pause();
+          result = result
+            .then(({ accumulation, done }) => {
+              if (!done) {
+                stream.resume();
+                const updatedResult : ReducerResult<AccumulationT> = finalReducer(accumulation, event);
+                return updatedResult;
+              }
+              return { accumulation, done };
+            });
+          result
+            .then(({ done }) => {
+              if (done) {
+                // console.log('transduce reducer async done');
+                finish();
+                resolve(result);
+              }
+            })
+            .catch((error) => {
+              // console.log('transduce reducer async error', error.toString());
+              finish();
+              reject(error);
+            });
+        }
+        else if (!result.done) {
+          try {
+            result = finalReducer(result.accumulation, event);
+            if (result.done) {
+              // console.log('transduce reducer sync done');
+              finish();
+              resolve(result);
+            }
+          }
+          catch (error) {
+            // console.log('transduce reducer sync error', error.toString());
+            finish();
+            reject(error);
+          }
+        }
+      }
+    };
+
+    const onEnd = () => {
+      // console.log('transduce listener end');
+      finish();
+
+      result = Promise.resolve(result).then(({ accumulation, done }) => finalReducer(accumulation, { done: true }));
+      result.then(resolve, reject);
+    };
+
+    start();
+  });
+
+  return (stream) => {
+    if (stream.consumer) {
+      throw new StreamError('Stream already being consumed.');
+    }
+    const transducerPromise = stream.stream.then(consumeStream);
+    stream.consumer = transducerPromise;
+    return transducerPromise.then(({ accumulation }) => accumulation);
   };
 }
 
-function produce<ProducedT, SeedT>(producer: Producer<ProducedT, SeedT>, seed: ?SeedT): Stream<ProducedT> {
-  const wrappedProducer = wrapProducer(producer, seed);
-  // A promise to make sure we don't push stuff out of order.
-  let producerPromise = Promise.resolve();
-
-  const stream = new Readable({
-    objectMode: true,
-    read(size) {
-      producerPromise = producerPromise.then(wrappedProducer(this));
-    }
-  });
-  return wrapReadableStream(stream);
+function reduceInternalStream<T>(stream: InternalStream<T>, event: Event<T>): ReducerResult<InternalStream<T>> {
+  stream.pushEvent(event);
+  const done = event.done || (event.error && true);
+  return { accumulation: stream, done };
 }
 
-function isIterable(obj) {
-  if (!obj) {
-    return false;
-  }
+function transduceToStream<ConsumedT, ProducedT>(transformer: ReducerTransformer<ConsumedT, ProducedT, any>): (Stream<ConsumedT>) => Stream<ProducedT> {
+  const transducer = transduce(transformer, reduceInternalStream, () => new InternalStream());
+  return (stream) => createStream(transducer(stream));
+}
+
+export type Transformer<ConsumedT, ProducedT, SeedT = void> = (event: Event<ConsumedT>, push: Push<ProducedT>, seed: ?SeedT) => ?SeedT | Promise<?SeedT>;
+
+function transform<ConsumedT, ProducedT, SeedT>(transformer: Transformer<ConsumedT, ProducedT, SeedT>, seed: ?SeedT): (Stream<ConsumedT>) => Stream<ProducedT> {
+  const reducerTransformer = (reducer) => {
+    const wrappedTransformer = wrapInPromise(transformer);
+    let currentSeed = seed;
+    return (accumulation, consumedEvent) => {
+      let result = Promise.resolve({ accumulation, done: false });
+      return wrappedTransformer(
+        consumedEvent,
+        (producedEvent) => {
+          const done = producedEvent.done || (producedEvent.error && true);
+          result = result
+            .then(({ accumulation }) => reducer(accumulation, producedEvent))
+            .then(({ accumulation }) => ({ accumulation, done }));
+          return !done;
+        },
+        currentSeed)
+        .then((newSeed) => {
+          currentSeed = newSeed;
+          return result;
+        });
+    };
+  };
+
+  return transduceToStream(reducerTransformer);
+}
+
+type Subscriber<T> = (event: Event<T>) => Promise<void> | void;
+
+function subscribe<T>(subscriber: Subscriber<T>): (Stream<T>) => Promise<void> {
+  return transduce(
+    undefined,
+    (_, event) => {
+      const result = subscriber(event);
+      const done = event.done || (event.error && true);
+      if (result instanceof Promise) {
+        return result.then(() => ({
+          accumulation: undefined,
+          done
+        }));
+      }
+      return {
+        accumulation: undefined,
+        done
+      };
+    },
+    () => undefined);
+}
+
+export type Producer<ProducedT, SeedT> = (push: Push<ProducedT>, seed: ?SeedT) => ?SeedT | Promise<?SeedT>;
+
+function produce<ProducedT, SeedT>(producer: Producer<ProducedT, SeedT>, seed: ?SeedT): Stream<ProducedT> {
+  let currentSeed = seed;
+  const internalProducer: InternalStreamProducer<ProducedT> = (push, context) => {
+    if (currentSeed instanceof Promise) {
+      currentSeed = currentSeed
+        .then((seed) => {
+          if (context.status == STREAM_STATUS.OPEN) {
+            return producer(push, seed);
+          }
+          return seed;
+        })
+        .catch((error) => { push({ error }); });
+    }
+    else {
+      try {
+        currentSeed = producer(push, currentSeed);
+      }
+      catch (error) {
+        push({ error });
+      }
+    }
+  };
+
+  return createStream(new InternalStream(internalProducer));
+}
+
+function fromReadable<T>(readable: stream.Readable): Stream<T> {
+  const internalStream = new InternalStream();
+  const dataListener = (value) => {
+    internalStream.pushEvent({ value });
+  };
+  const errorListener = (error) => {
+    internalStream.pushEvent({ error });
+    readable
+      .removeListener('data', dataListener)
+      .removeListener('error', errorListener)
+      .removeListener('end', endListener);
+  };
+  const endListener = () => {
+    internalStream.pushEvent({ done: true });
+    readable
+      .removeListener('data', dataListener)
+      .removeListener('error', errorListener)
+      .removeListener('end', endListener);
+  };
+  readable
+    .on('data', dataListener)
+    .on('error', errorListener)
+    .on('end', endListener)
+    .resume();
+
+  return createStream(internalStream);
+}
+
+function fromIterable<T>(iterable: Iterable<T>): Stream<T> {
   // $FlowFixMe bug in the Iterable type of flow (cf. https://github.com/facebook/flow/issues/1163)
-  return typeof obj[Symbol.iterator] === 'function';
+  const iterator: Iterator<T> = iterable[Symbol.iterator]();
+  return createStream(new InternalStream(
+    (push: Push<T>) => {
+      let continueProduction = true;
+      while (continueProduction) {
+        const iteratorResult = iterator.next();
+        if (iteratorResult.done) {
+          push({ done: true });
+          continueProduction = false;
+        }
+        else {
+          continueProduction = push({ value: iteratorResult.value });
+        }
+      }
+    }
+  ));
 }
 
 function from<T>(input: Iterable<T> | stream.Readable): Stream<T> {
   if (input instanceof Readable) {
-    const transformer = new Transform({
-      objectMode: true,
-      transform(chunk, encoding, callback) {
-        this.push(chunk, encoding);
-        callback();
-      }
-    });
-    const transformedStream = wrapReadableStream(transformer);
-    // Forward errors to the transformed stream
-    input.on('error', (error) => transformer.emit('error', error));
-    input.pipe(transformer);
-    return transformedStream;
+    return fromReadable(input);
   }
-  else if (isIterable(input)) {
-    // $FlowFixMe bug in the Iterable type of flow (cf. https://github.com/facebook/flow/issues/1163)
-    const iterator: Iterator<T> = input[Symbol.iterator]();
-    return wrapReadableStream(new Readable({
-      objectMode: true,
-      read() {
-        for (;;) {
-          const { done, value } = iterator.next();
-          if (done) {
-            this.push(null);
-            return;
-          }
-          if (!this.push(value)) {
-            return;
-          }
-        }
-      }
-    }));
+  // $FlowFixMe bug in the Iterable type of flow (cf. https://github.com/facebook/flow/issues/1163)
+  else if (input && typeof input[Symbol.iterator] === 'function') {
+    return fromIterable(input);
   }
   else {
     return throwError(new StreamError('Unable to create a stream, \'from\' only supports iterable or Readable stream.'));
@@ -291,16 +276,13 @@ function from<T>(input: Iterable<T> | stream.Readable): Stream<T> {
 }
 
 function of<T>(...args: T[]): Stream<T> {
-  return from(args);
+  return fromIterable(args);
 }
 
 function throwError<T>(error: Error): Stream<T> {
-  return wrapReadableStream(new Readable({
-    objectMode: true,
-    read() {
-      this.emit('error', error);
-    }
-  }));
+  return produce((push) => {
+    push({ error });
+  });
 }
 
 module.exports = {
@@ -309,5 +291,7 @@ module.exports = {
   produce,
   subscribe,
   throwError,
+  transduce,
+  transduceToStream,
   transform
 };

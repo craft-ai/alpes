@@ -28,9 +28,6 @@ function benchmark(title) {
     })
     .on('cycle', function(event){
       console.log(event.target.toString());
-    })
-    .on('complete', function(){
-      console.log(`Fastest is ${this.filter('fastest').map('name')} !`);
     });
 }
 

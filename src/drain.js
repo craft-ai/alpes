@@ -1,25 +1,19 @@
 // @flow
-const { subscribe } = require('./basics');
-const { StreamError } = require('./errors');
+const { transduce } = require('./basics');
 
 import type { Stream } from './basics';
 
 function drain<T>(): (Stream<T>) => Promise<void> {
-  return (stream) => {
-    if (stream.countConsumers() > 0) {
-      throw new StreamError('Stream already being consumed.');
-    }
-    return new Promise((resolve, reject) => {
-      subscribe((event) => {
-        if (event.error) {
-          reject(event.error);
-        }
-        else if (event.done) {
-          resolve();
-        }
-      })(stream);
-    });
-  };
+  return transduce(
+    undefined,
+    (accumulation, event) => {
+      if (event.error) {
+        throw event.error;
+      }
+
+      return { accumulation, done: event.done };
+    },
+    () => {});
 }
 
 module.exports = {

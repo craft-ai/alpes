@@ -120,10 +120,10 @@ test('Can throw an error when done', (t) => {
     of(1, 2, 3, 4)
       .thru(transform((event, push) => {
         if (event.done) {
-          push({ error: new Error('It should never end') });
+          t.false(push({ error: new Error('It should never end') }));
         }
         else {
-          push(event);
+          t.true(push(event));
         }
       }))
       .thru(tap((v) => observed.push(v)))
