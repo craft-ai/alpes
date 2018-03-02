@@ -2,27 +2,30 @@
 const { Readable } = require('stream');
 const { StreamError } = require('./errors');
 const { wrapInPromise } = require('./utils');
-const { InternalStream, STREAM_STATUS } = require('./internalStream');
+const { InternalStream, strFromEvent } = require('./internalStream');
 
 import type { Event, Producer as InternalStreamProducer, Push } from './internalStream';
 import type stream from 'stream';
 
 export interface Stream<T> {
   stream: Promise<InternalStream<T>>,
-  consumer?: any,
+  consuming: boolean,
   thru<R, Fn: (Stream<T>) => R>(f: Fn): R
 }
 
 function createStream<T>(stream: InternalStream<T> | Promise<InternalStream<T>>): Stream<T> {
   return {
     stream: stream instanceof Promise ? stream : Promise.resolve(stream),
+    consuming: false,
     thru<R, Fn: (Stream<T>) => R>(f: Fn): R {
       return f(this);
     }
   };
 }
 
-export type ReducerResult<T> = Promise<{| accumulation: T, done: ?boolean |}> | {| accumulation: T, done: ?boolean |}
+type SyncReducerResult<T> = {| accumulation: T, done: ?boolean |}
+type AsyncReducerResult<T> = Promise<SyncReducerResult<T>>
+export type ReducerResult<T> = AsyncReducerResult<T> | SyncReducerResult<T>
 export type Reducer<T, AccumulationT> = (AccumulationT, Event<T>) => ReducerResult<AccumulationT>;
 export type ReducerTransformer<T, TransformedT, AccumulationT> = (Reducer<TransformedT, AccumulationT>) => Reducer<T, AccumulationT>;
 export type Seeder<AccumulationT> = () => AccumulationT;
@@ -55,19 +58,30 @@ function transduce<T, TransformedT, AccumulationT>(
   };
 
   return (stream) => {
-    if (stream.consumer) {
+    if (stream.consuming) {
       throw new StreamError('Stream already being consumed.');
     }
     const transducerPromise = stream.stream.then(consumeStream);
-    stream.consumer = transducerPromise;
+    stream.consuming = true;
     return transducerPromise;
   };
 }
 
+function createReduceInternalStreamResult<T>(stream: InternalStream<T>, event: Event<T>): SyncReducerResult<InternalStream<T>> {
+  return {
+    accumulation: stream,
+    done: event.done || (event.error && true)
+  };
+}
+
 function reduceInternalStream<T>(stream: InternalStream<T>, event: Event<T>): ReducerResult<InternalStream<T>> {
-  stream.push(event);
-  const done = event.done || (event.error && true);
-  return { accumulation: stream, done };
+  const waitAndPushResult = stream.waitAndPush(event);
+  if (waitAndPushResult instanceof Promise) {
+    return waitAndPushResult.then(createReduceInternalStreamResult.bind(null, stream, event));
+  }
+  else {
+    return createReduceInternalStreamResult(stream, event);
+  }
 }
 
 function transduceToStream<ConsumedT, ProducedT>(transformer: ReducerTransformer<ConsumedT, ProducedT, any>): (Stream<ConsumedT>) => Stream<ProducedT> {
@@ -82,15 +96,24 @@ function transform<ConsumedT, ProducedT, SeedT>(transformer: Transformer<Consume
     const wrappedTransformer = wrapInPromise(transformer);
     let currentSeed = seed;
     return (accumulation, consumedEvent) => {
-      let result = Promise.resolve({ accumulation, done: false });
+      let result = { accumulation, done: false };
       return wrappedTransformer(
         consumedEvent,
         (producedEvent) => {
-          const done = producedEvent.done || (producedEvent.error && true);
-          result = result
-            .then(({ accumulation }) => reducer(accumulation, producedEvent))
-            .then(({ accumulation }) => ({ accumulation, done }));
-          return !done;
+          if (result instanceof Promise) {
+            result = result
+              .then(({ accumulation }) => reducer(accumulation, producedEvent));
+            return false;
+          }
+          else {
+            result = reducer(result.accumulation, producedEvent);
+            if (result instanceof Promise) {
+              return false;
+            }
+            else {
+              return !result.done;
+            }
+          }
         },
         currentSeed)
         .then((newSeed) => {
@@ -129,20 +152,25 @@ export type Producer<ProducedT, SeedT> = (push: Push<ProducedT>, seed: ?SeedT) =
 
 function produce<ProducedT, SeedT>(producer: Producer<ProducedT, SeedT>, seed: ?SeedT): Stream<ProducedT> {
   let currentSeed = seed;
-  const internalProducer: InternalStreamProducer<ProducedT> = (push, context) => {
-    if (currentSeed instanceof Promise) {
+  const internalProducer: InternalStreamProducer<ProducedT> = (push, done) => {
+    if (done) {
+      return;
+    }
+    else if (currentSeed instanceof Promise) {
       currentSeed = currentSeed
         .then((seed) => {
-          if (context.status == STREAM_STATUS.OPEN) {
+          if (!done) {
             return producer(push, seed);
           }
           return seed;
         })
         .catch((error) => { push({ error }); });
+      return currentSeed.then(() => (void 0));
     }
     else {
       try {
         currentSeed = producer(push, currentSeed);
+        return;
       }
       catch (error) {
         push({ error });
@@ -155,22 +183,38 @@ function produce<ProducedT, SeedT>(producer: Producer<ProducedT, SeedT>, seed: ?
 
 function fromReadable<T>(readable: stream.Readable): Stream<T> {
   const internalStream = new InternalStream();
+  const removeListeners = () => {
+    readable
+      .removeListener('data', dataListener)
+      .removeListener('error', errorListener)
+      .removeListener('end', endListener);
+  };
   const dataListener = (value) => {
-    internalStream.push({ value });
+    const ready = internalStream.waitAndPush({ value });
+    if (ready instanceof Promise) {
+      readable.pause();
+      ready.then((ready) => {
+        if (ready) {
+          readable.resume();
+        }
+        else {
+          // The only way it's not ready for more is that the consumer is done.
+          removeListeners();
+        }
+      });
+    }
+    else if (!ready) {
+      // The only way it's not ready for more is that the consumer is done.
+      removeListeners();
+    }
   };
   const errorListener = (error) => {
-    internalStream.push({ error });
-    readable
-      .removeListener('data', dataListener)
-      .removeListener('error', errorListener)
-      .removeListener('end', endListener);
+    internalStream.waitAndPush({ error });
+    removeListeners();
   };
   const endListener = () => {
-    internalStream.push({ done: true });
-    readable
-      .removeListener('data', dataListener)
-      .removeListener('error', errorListener)
-      .removeListener('end', endListener);
+    internalStream.waitAndPush({ done: true });
+    removeListeners();
   };
   readable
     .on('data', dataListener)

@@ -52,7 +52,7 @@ test('Pauses the production if there is a slow consumer (second version)', (t) =
           observedCount++;
           t.true(observedCount <= producedCount);
           // Keep a maximum lag between the producer and observer
-          t.true(producedCount - observedCount < 20);
+          t.true(producedCount - observedCount <= 100);
           t.true(push(event));
         }
         else {
