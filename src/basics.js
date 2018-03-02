@@ -32,88 +32,27 @@ function transduce<T, TransformedT, AccumulationT>(
   reducer: Reducer<TransformedT, AccumulationT>,
   seeder: Seeder<AccumulationT>): (Stream<T>) => Promise<AccumulationT> {
 
-  const consumeStream = (stream) => new Promise((resolve, reject) => {
-    let result : ReducerResult<AccumulationT> = { accumulation: seeder(), done: false };
+  const consumeStream = (stream) => {
     // $FlowFixMe it seems the T == TransformedT case is not well handled...
     const finalReducer: Reducer<T, AccumulationT> = transformer ? transformer(reducer) : reducer;
+    let finalAccumulation = seeder();
 
-    const start = () => {
-      stream
-        .on('data', onData)
-        .on('end', onEnd)
-        .resume();
-    };
-    const finish = () => {
-      stream
-        .pause()
-        .removeListener('data', onData)
-        .removeListener('end', onEnd);
-    };
-    const onData = (event) => {
-      if (event.error) {
-        // console.log('transduce listener error', event.error.toString());
-        finish();
-
-        result = Promise.resolve(result).then(({ accumulation, done }) => finalReducer(accumulation, event));
-        result.then(resolve, reject);
+    return stream.consume((event) => {
+      const reducerResult = finalReducer(finalAccumulation, event);
+      if (reducerResult instanceof Promise) {
+        return reducerResult.then(({ accumulation, done }) => {
+          finalAccumulation = accumulation;
+          return !!done;
+        });
       }
       else {
-        // console.log('transduce listener value', event.value);
-        if (result instanceof Promise) {
-          // We only have a promise on the accumulation
-          // -> Pause and resume after
-          stream.pause();
-          result = result
-            .then(({ accumulation, done }) => {
-              if (!done) {
-                stream.resume();
-                const updatedResult : ReducerResult<AccumulationT> = finalReducer(accumulation, event);
-                return updatedResult;
-              }
-              return { accumulation, done };
-            });
-          result
-            .then(({ done }) => {
-              if (done) {
-                // console.log('transduce reducer async done');
-                finish();
-                resolve(result);
-              }
-            })
-            .catch((error) => {
-              // console.log('transduce reducer async error', error.toString());
-              finish();
-              reject(error);
-            });
-        }
-        else if (!result.done) {
-          try {
-            result = finalReducer(result.accumulation, event);
-            if (result.done) {
-              // console.log('transduce reducer sync done');
-              finish();
-              resolve(result);
-            }
-          }
-          catch (error) {
-            // console.log('transduce reducer sync error', error.toString());
-            finish();
-            reject(error);
-          }
-        }
+        const { accumulation, done } = reducerResult;
+        finalAccumulation = accumulation;
+        return !!done;
       }
-    };
-
-    const onEnd = () => {
-      // console.log('transduce listener end');
-      finish();
-
-      result = Promise.resolve(result).then(({ accumulation, done }) => finalReducer(accumulation, { done: true }));
-      result.then(resolve, reject);
-    };
-
-    start();
-  });
+    })
+      .then(() => finalAccumulation);
+  };
 
   return (stream) => {
     if (stream.consumer) {
@@ -121,12 +60,12 @@ function transduce<T, TransformedT, AccumulationT>(
     }
     const transducerPromise = stream.stream.then(consumeStream);
     stream.consumer = transducerPromise;
-    return transducerPromise.then(({ accumulation }) => accumulation);
+    return transducerPromise;
   };
 }
 
 function reduceInternalStream<T>(stream: InternalStream<T>, event: Event<T>): ReducerResult<InternalStream<T>> {
-  stream.pushEvent(event);
+  stream.push(event);
   const done = event.done || (event.error && true);
   return { accumulation: stream, done };
 }
@@ -217,17 +156,17 @@ function produce<ProducedT, SeedT>(producer: Producer<ProducedT, SeedT>, seed: ?
 function fromReadable<T>(readable: stream.Readable): Stream<T> {
   const internalStream = new InternalStream();
   const dataListener = (value) => {
-    internalStream.pushEvent({ value });
+    internalStream.push({ value });
   };
   const errorListener = (error) => {
-    internalStream.pushEvent({ error });
+    internalStream.push({ error });
     readable
       .removeListener('data', dataListener)
       .removeListener('error', errorListener)
       .removeListener('end', endListener);
   };
   const endListener = () => {
-    internalStream.pushEvent({ done: true });
+    internalStream.push({ done: true });
     readable
       .removeListener('data', dataListener)
       .removeListener('error', errorListener)
