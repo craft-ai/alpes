@@ -1,10 +1,10 @@
 // @flow
 const { Readable } = require('stream');
 const { StreamError } = require('./errors');
-const { wrapInPromise } = require('./utils');
-const { InternalStream, strFromEvent } = require('./internalStream');
+const { InternalStream } = require('./internalStream');
 
-import type { Event, Producer as InternalStreamProducer, Push } from './internalStream';
+import type { Event } from './event';
+import type { Producer as InternalStreamProducer, Push } from './internalStream';
 import type stream from 'stream';
 
 export interface Stream<T> {
@@ -87,65 +87,6 @@ function reduceInternalStream<T>(stream: InternalStream<T>, event: Event<T>): Re
 function transduceToStream<ConsumedT, ProducedT>(transformer: ReducerTransformer<ConsumedT, ProducedT, any>): (Stream<ConsumedT>) => Stream<ProducedT> {
   const transducer = transduce(transformer, reduceInternalStream, () => new InternalStream());
   return (stream) => createStream(transducer(stream));
-}
-
-export type Transformer<ConsumedT, ProducedT, SeedT = void> = (event: Event<ConsumedT>, push: Push<ProducedT>, seed: ?SeedT) => ?SeedT | Promise<?SeedT>;
-
-function transform<ConsumedT, ProducedT, SeedT>(transformer: Transformer<ConsumedT, ProducedT, SeedT>, seed: ?SeedT): (Stream<ConsumedT>) => Stream<ProducedT> {
-  const reducerTransformer = (reducer) => {
-    const wrappedTransformer = wrapInPromise(transformer);
-    let currentSeed = seed;
-    return (accumulation, consumedEvent) => {
-      let result = { accumulation, done: false };
-      return wrappedTransformer(
-        consumedEvent,
-        (producedEvent) => {
-          if (result instanceof Promise) {
-            result = result
-              .then(({ accumulation }) => reducer(accumulation, producedEvent));
-            return false;
-          }
-          else {
-            result = reducer(result.accumulation, producedEvent);
-            if (result instanceof Promise) {
-              return false;
-            }
-            else {
-              return !result.done;
-            }
-          }
-        },
-        currentSeed)
-        .then((newSeed) => {
-          currentSeed = newSeed;
-          return result;
-        });
-    };
-  };
-
-  return transduceToStream(reducerTransformer);
-}
-
-type Subscriber<T> = (event: Event<T>) => Promise<void> | void;
-
-function subscribe<T>(subscriber: Subscriber<T>): (Stream<T>) => Promise<void> {
-  return transduce(
-    undefined,
-    (_, event) => {
-      const result = subscriber(event);
-      const done = event.done || (event.error && true);
-      if (result instanceof Promise) {
-        return result.then(() => ({
-          accumulation: undefined,
-          done
-        }));
-      }
-      return {
-        accumulation: undefined,
-        done
-      };
-    },
-    () => undefined);
 }
 
 export type Producer<ProducedT, SeedT> = (push: Push<ProducedT>, seed: ?SeedT) => ?SeedT | Promise<?SeedT>;
@@ -272,9 +213,7 @@ module.exports = {
   from,
   of,
   produce,
-  subscribe,
   throwError,
   transduce,
-  transduceToStream,
-  transform
+  transduceToStream
 };
