@@ -58,5 +58,5 @@ test('Fails when no argument is provided', (t) => {
     // $FlowFixMe check error when flow doesn't yell
     from().thru(drain()),
     StreamError)
-    .then((error) => t.is(error.message, 'Unable to create a stream, \'from\' only supports iterable or Readable stream.'));
+    .then((error) => t.is(error.message, 'Unable to create a stream, \'from\' only supports iterable, Readable stream or Error.'));
 });

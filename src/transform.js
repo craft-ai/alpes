@@ -1,10 +1,8 @@
 // @flow
-const { transduceToStream } = require('./basics');
+const { transduceToStream } = require('./transduce');
 const { wrapInPromise } = require('./utils');
 
-import type { Event } from './event';
-import type { Push } from './internalStream';
-import type { Stream } from './basics';
+import type { Event, Push, Stream } from './basics';
 
 export type Transformer<ConsumedT, ProducedT, SeedT = void> = (event: Event<ConsumedT>, push: Push<ProducedT>, seed: ?SeedT) => ?SeedT | Promise<?SeedT>;
 

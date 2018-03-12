@@ -1,8 +1,7 @@
 // @flow
-const { transduce } = require('./basics');
+const { transduce } = require('./transduce');
 
-import type { Event } from './event';
-import type { Stream } from './basics';
+import type { Event, Stream } from './basics';
 
 type Subscriber<T> = (event: Event<T>) => Promise<void> | void;
 
