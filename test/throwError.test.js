@@ -13,12 +13,7 @@ test('Throws the given error', (t) => {
 test('Throws the given error properly', (t) => {
   const errorMessage = 'huhuhuhuhuh';
   t.plan(1);
-  try {
-    return throwError(new Error(errorMessage))
-      .thru(drain())
-      .catch((e) => t.is(e.message, errorMessage));
-  }
-  catch (e) {
-    console.log(e);
-  }
+  return throwError(new Error(errorMessage))
+    .thru(drain())
+    .catch((e) => t.is(e.message, errorMessage));
 });
