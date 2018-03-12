@@ -2,6 +2,7 @@
 import fs from 'fs';
 import path from 'path';
 import test from 'ava';
+import { delay } from '../src/utils';
 import { drain, from, StreamError, tap } from '../src';
 
 test('Can be provided with an array', (t) => {
@@ -18,6 +19,24 @@ test('Can be provided with a string', (t) => {
     .thru(tap((v) => observed.push(v)))
     .thru(drain())
     .then(() => t.deepEqual(observed, ['f', 'o', 'o']));
+});
+
+test('Can be provided with a Promise that will be fulfilled', (t) => {
+  return from(delay(100).then(() => 'tada'))
+    .thru(tap((value) => t.is(value, 'tada')))
+    .thru(drain());
+});
+
+test('Can be provided with a Promise that will be rejected', (t) => {
+  return t.throws(from(delay(100).then(() => Promise.reject(new Error('boouh'))))
+    .thru(drain()))
+    .then((error) => t.is(error.message, 'boouh'));
+});
+
+test('Can be provided with an Error', (t) => {
+  return t.throws(from(new Error('blop'))
+    .thru(drain()))
+    .then((error) => t.is(error.message, 'blop'));
 });
 
 test('Can be provided with a Map', (t) => {

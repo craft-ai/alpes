@@ -74,12 +74,27 @@ function fromError<T>(error: Error): Stream<T> {
   return createBaseStream((push) => { push({ error }); });
 }
 
-function from<T>(input: Iterable<T> | stream.Readable | Error): Stream<T> {
+function fromPromise<T>(promise: Promise<T>): Stream<T> {
+  return createBaseStream((push) => promise.then(
+    (value) => {
+      push({ value });
+      push({ done: true });
+    },
+    (error) => {
+      push({ error });
+    }
+  ));
+}
+
+function from<T>(input: Iterable<T> | stream.Readable | Error | Promise<T>): Stream<T> {
   if (input instanceof Readable) {
     return fromReadable(input);
   }
   else if (input instanceof Error) {
     return fromError(input);
+  }
+  else if (input instanceof Promise) {
+    return fromPromise(input);
   }
   // $FlowFixMe bug in the Iterable type of flow (cf. https://github.com/facebook/flow/issues/1163)
   else if (input && typeof input[Symbol.iterator] === 'function') {
