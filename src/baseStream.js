@@ -1,7 +1,7 @@
 // @flow
 const EventEmitter = require('events');
 const { StreamError } = require('./errors');
-// const { strFromEvent } = require('./event');
+// const { strFromEvent } = require('./basics');
 
 import type { Consumer, Event, Producer, Stream } from './basics';
 
@@ -75,7 +75,7 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
     }
   }
   _consume(event: Event<T>) {
-    //console.log('BaseStream._consume', strFromEvent(event), this.consumerStatus);
+    // console.log('BaseStream._consume', strFromEvent(event), this.consumerStatus);
     // By construction we're sure that
     //  - `this.consumerStatus == CONSUMER_STATUS.READY`
     // if (this.consumerStatus != CONSUMER_STATUS.READY) {
