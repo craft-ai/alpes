@@ -15,7 +15,7 @@ for (let i = 0; i < data.length; ++i) {
 const addOne = (x) => x + 1;
 const sum = (x, y) => x + y;
 
-benchmark(`map -> reduce (${data} items)`)
+benchmark(`map -> reduce (${data.length} items)`)
   .add('alpes (map and reduce)', wrapRunner(() =>
     alpes.from(data)
       .thru(alpes.map(addOne))

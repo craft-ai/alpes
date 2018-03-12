@@ -1,7 +1,10 @@
 // @flow
 const { drain }  = require('./drain');
-const { from, of, produce, throwError, transduce } = require('./basics');
+const { produce } = require('./produce');
+const { transduce } = require('./transduce');
+const { from, of, throwError } = require('./from');
 const { map }  = require('./map');
+const { merge }  = require('./merge');
 const { reduce }  = require('./reduce');
 const { subscribe }  = require('./subscribe');
 const { tap }  = require('./tap');
@@ -12,6 +15,7 @@ module.exports = {
   drain,
   from,
   map,
+  merge,
   of,
   produce,
   reduce,

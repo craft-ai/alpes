@@ -1,5 +1,5 @@
 // @flow
-const { transduce } = require('./basics');
+const { transduce } = require('./transduce');
 
 import type { Stream } from './basics';
 

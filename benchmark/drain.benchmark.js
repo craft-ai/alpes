@@ -12,7 +12,7 @@ for (let i = 0; i < data.length; ++i) {
   data[i] = i;
 }
 
-benchmark(`drain (${data} items)`)
+benchmark(`drain (${data.length} items)`)
   .add('alpes', wrapRunner(() =>
     alpes.from(data)
       .thru(alpes.drain())),
