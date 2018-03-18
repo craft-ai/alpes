@@ -1,5 +1,5 @@
 // @flow
-const { mergeStream, transduceToStream } = require('./transduce');
+const { concatStream, mergeStream, transduceToStream } = require('./transduce');
 
 import type { Stream } from './basics';
 import type { Transformer } from './transduce';
@@ -37,7 +37,16 @@ function chain<ConsumedT, ProducedT>(mapper: Mapper<ConsumedT, Stream<ProducedT>
   return transducer;
 }
 
+function concatMap<ConsumedT, ProducedT>(mapper: Mapper<ConsumedT, Stream<ProducedT>>): (Stream<ConsumedT>) => Stream<ProducedT> {
+  const reducerTransformer: Transformer<ConsumedT, Stream<ProducedT>, void> = createMapperTransformer(mapper);
+  // $FlowFixMe
+  const transducer: (Stream<ConsumedT>) => Stream<ProducedT> = transduceToStream(reducerTransformer, concatStream);
+  return transducer;
+}
+
 module.exports = {
   chain,
-  map
+  concatMap,
+  map,
+  mergeMap: chain
 };

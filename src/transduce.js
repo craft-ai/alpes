@@ -1,6 +1,6 @@
 // @flow
 const { createBaseStream } = require('./baseStream');
-const { strFromEvent } = require('./basics');
+// const { strFromEvent } = require('./basics');
 
 import type { Event, Stream } from './basics';
 

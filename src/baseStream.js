@@ -1,7 +1,7 @@
 // @flow
 const EventEmitter = require('events');
 const { StreamError } = require('./errors');
-const { strFromEvent } = require('./basics');
+// const { strFromEvent } = require('./basics');
 
 import type { Consumer, Event, Producer, Stream } from './basics';
 
