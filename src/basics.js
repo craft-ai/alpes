@@ -12,7 +12,8 @@ export type Producer<T> = (push: Push<T>, stop?: boolean) => Promise<void> | voi
 export interface Stream<T> {
   consume(consumer: Consumer<T>): Promise<void>,
   push(event: Event<T>): Promise<boolean> | boolean,
-  thru<R, Fn: (Stream<T>) => R>(f: Fn): R
+  thru<R, Fn: (Stream<T>) => R>(f: Fn): R,
+  toString(): string
 }
 
 function strFromEvent<T>(event: Event<T>): string {

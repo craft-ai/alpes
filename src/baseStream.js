@@ -1,7 +1,7 @@
 // @flow
 const EventEmitter = require('events');
 const { StreamError } = require('./errors');
-// const { strFromEvent } = require('./basics');
+const { strFromEvent } = require('./basics');
 
 import type { Consumer, Event, Producer, Stream } from './basics';
 
@@ -28,7 +28,11 @@ const DEFAULT_INTERNAL_STREAM_CONFIGURATION : Configuration = {
   bufferHighWaterMark: 100
 };
 
+let nextStreamId = 0;
+
 class BaseStream<T> extends EventEmitter implements Stream<T> {
+  id: number;
+
   cfg: Configuration;
 
   producer: ?Producer<T>;
@@ -40,6 +44,8 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
 
   constructor(producer: ?Producer<T>, cfg: Configuration = DEFAULT_INTERNAL_STREAM_CONFIGURATION) {
     super();
+    this.id = nextStreamId++;
+
     this.producerStatus = PRODUCER_STATUS.ONGOING;
     this.producer = producer;
     this.buffer = [];
@@ -47,9 +53,6 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
 
     this.consumerStatus = CONSUMER_STATUS.NONE;
     this.consumer = null;
-
-    // this.on('consumerDone', (error) => error ? console.log('**** error', error) : console.log('**** done'));
-    // this.on('consumerReady', () => console.log('**** ready'));
   }
   _handleConsumerError(error: Error) {
     this.consumerStatus = CONSUMER_STATUS.DONE;
@@ -75,7 +78,7 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
     }
   }
   _consume(event: Event<T>) {
-    // console.log('BaseStream._consume', strFromEvent(event), this.consumerStatus);
+    //console.log(`${this.toString()}._consume(${strFromEvent(event)})`);
     // By construction we're sure that
     //  - `this.consumerStatus == CONSUMER_STATUS.READY`
     // if (this.consumerStatus != CONSUMER_STATUS.READY) {
@@ -105,7 +108,7 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
     }
   }
   _produce(event: Event<T>): boolean {
-    //console.log('BaseStream._produce', strFromEvent(event));
+    //console.log(`${this.toString()}._produce(${strFromEvent(event)})`);
     let productionDone = false;
     if (this.producerStatus != PRODUCER_STATUS.ONGOING) {
       throw new StreamError('No event should be produced once the stream has ended.');
@@ -140,7 +143,7 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
     }
   }
   _doConsume() {
-    //console.log('BaseStream._doConsume', this.consumerStatus, this.buffer.length);
+    //console.log(`${this.toString()}._doConsume()`);
 
     // 1 - let's evacuate what is in the buffer
     while (
@@ -174,7 +177,7 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
     }
   }
   consume(consumer: Consumer<T>): Promise<void> {
-    // console.log('BaseStream.consume');
+    // console.log(`${this.toString()}.consume(...)`);
     if (this.consumer != null) {
       throw new StreamError('Stream already being consumed.');
     }
@@ -193,7 +196,7 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
     });
   }
   push(event: Event<T>): Promise<boolean> | boolean {
-    // console.log('BaseStream.push', strFromEvent(event), this.consumerStatus);
+    // console.log(`${this.toString()}.push(${strFromEvent(event)})`);
     switch (this.consumerStatus) {
       case CONSUMER_STATUS.BUSY:
         return new Promise(this.once.bind(this, 'consumerReady'))
@@ -204,6 +207,9 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
   }
   thru<R, Fn: (BaseStream<T>) => R>(f: Fn): R {
     return f(this);
+  }
+  toString(): string {
+    return `[BaseStream #${this.id} { producer: ${this.producerStatus}, buffer: [${this.buffer.length}], consumer: ${this.consumerStatus} }]`;
   }
 }
 
