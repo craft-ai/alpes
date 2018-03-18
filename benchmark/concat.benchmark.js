@@ -13,14 +13,13 @@ for (let i = 0; i < data.length; ++i) {
 
 const sum = (x, y) => x + y;
 
-benchmark(`merge (three streams of ${data.length} items)`)
+benchmark(`concat (three streams of ${data.length} items)`)
   .add('alpes', wrapRunner(() =>
-    alpes.merge(alpes.from(data), alpes.from(data), alpes.from(data))
+    alpes.concat(alpes.from(data), alpes.from(data), alpes.from(data))
       .thru(alpes.reduce(sum, 0))),
   options)
   .add('highland', wrapRunner(() => new Promise((resolve, reject) =>
-    highland([highland(data), highland(data), highland(data)])
-      .merge()
+    highland.concat([highland(data), highland(data), highland(data)])
       .reduce(0, sum)
       .toCallback((error, value) => {
         if (error) {
@@ -32,7 +31,7 @@ benchmark(`merge (three streams of ${data.length} items)`)
       }))),
   options)
   .add('most', wrapRunner(() =>
-    most.merge(most.from(data), most.from(data), most.from(data))
+    most.concat(most.from(data), most.from(data), most.from(data))
       .reduce(sum, 0)),
   options)
   .run();

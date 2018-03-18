@@ -57,35 +57,6 @@ function concatEvent<T>(stream: Stream<T>) {
   };
 }
 
-function concatStream<T>(stream: Stream<T>) {
-  // $FlowFixMe
-  const concatEventToStream: (Event<T>) => Promise<boolean> | boolean = concatEvent(stream);
-  return (event: Event<Stream<T>>): Promise<boolean> | boolean => {
-    //console.log(`concatStream(${stream.toString()}, ${strFromEvent(event)})`);
-    if (event.done) {
-      return concatEventToStream({ done: true });
-    }
-    else if (event.error) {
-      return concatEventToStream({ error: event.error });
-    }
-    else {
-      const substream = event.value;
-      // Wait for the full substream to be consumed.
-      let substreamDone = false;
-      return substream.consume((substreamEvent: Event<T>) => {
-        if (substreamEvent.done) {
-          return true;
-        }
-        if (substreamEvent.error) {
-          substreamDone = true;
-        }
-        return concatEventToStream(substreamEvent);
-      })
-        .then(() => substreamDone);
-    }
-  };
-}
-
 function reducerFromStreamReducer<TransformedT, AccumulationT>(
   reducer: StreamReducer<TransformedT, AccumulationT>,
   stream: Stream<AccumulationT>): Reducer<TransformedT, void> {
@@ -129,7 +100,6 @@ function transduceToStream<T, TransformedT, AccumulationT>(
 
 module.exports = {
   concatEvent,
-  concatStream,
   transduce,
   transduceToStream
 };

@@ -1,6 +1,7 @@
 // @flow
-const { concatStream, transduceToStream } = require('./transduce');
+const { transduceToStream } = require('./transduce');
 const { mergeStream } = require('./merge');
+const { concatStream } = require('./concat');
 
 import type { Stream } from './basics';
 import type { Transformer } from './transduce';

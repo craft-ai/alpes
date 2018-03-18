@@ -14,10 +14,11 @@
     "lint": "eslint .",
     "test:unit": "nyc -- ava",
     "test": "yarn run test:unit && yarn run flow && yarn run lint",
+    "benchmark:concat": "NODE_ENV=production node ./benchmark/concat.benchmark.js",
     "benchmark:drain": "NODE_ENV=production node ./benchmark/drain.benchmark.js",
     "benchmark:mapReduce": "NODE_ENV=production node ./benchmark/mapReduce.benchmark.js",
     "benchmark:merge": "NODE_ENV=production node ./benchmark/merge.benchmark.js",
-    "benchmark": "yarn run build && yarn run benchmark:drain && yarn run benchmark:mapReduce && yarn run benchmark:merge"
+    "benchmark": "yarn run build && yarn run benchmark:concat && yarn run benchmark:drain && yarn run benchmark:mapReduce && yarn run benchmark:merge"
   },
   "dependencies": {},
   "devDependencies": {
