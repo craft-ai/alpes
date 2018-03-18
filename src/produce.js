@@ -11,25 +11,27 @@ function produce<ProducedT, SeedT>(producer: Producer<ProducedT, SeedT>, seed: ?
     if (done) {
       return;
     }
-    else if (currentSeed instanceof Promise) {
-      currentSeed = currentSeed
-        .then((seed) => {
-          if (!done) {
-            return producer(push, seed);
-          }
-          return seed;
-        })
-        .catch((error) => { push({ error }); });
-      return currentSeed.then(() => (void 0));
-    }
-    else {
-      try {
-        currentSeed = producer(push, currentSeed);
+    try {
+      const producerResult = producer(push, currentSeed);
+      if (producerResult instanceof Promise) {
+        return producerResult
+          .then((updatedSeed) => {
+            currentSeed = updatedSeed;
+            return;
+          })
+          .catch((error) => {
+            push({ error });
+            return;
+          });
+      }
+      else {
+        currentSeed = producerResult;
         return;
       }
-      catch (error) {
-        push({ error });
-      }
+    }
+    catch (error) {
+      push({ error });
+      return;
     }
   };
 
