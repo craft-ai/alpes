@@ -86,50 +86,6 @@ function concatStream<T>(stream: Stream<T>) {
   };
 }
 
-function mergeStream<T>(stream: Stream<T>) {
-  // $FlowFixMe
-  const concatEventToStream: (Event<T>) => Promise<boolean> | boolean = concatEvent(stream);
-  let substreamCount = 0;
-  let substreamDoneCount = 0;
-  let streamDone = false;
-  return (event: Event<Stream<T>>): Promise<boolean> | boolean => {
-    //console.log(`mergeStream(${stream.toString()}, ${strFromEvent(event)}) (${substreamCount}/${substreamDoneCount}/${streamDone})`);
-    if (event.done) {
-      streamDone = true;
-      if (streamDone && substreamCount == substreamDoneCount) {
-        return concatEventToStream({ done: true });
-      }
-      else {
-        return false;
-      }
-    }
-    else if (event.error) {
-      return concatEventToStream({ error: event.error });
-    }
-    else {
-      ++substreamCount;
-      const substream = event.value;
-      // Don't wait for the full substream to be consumed.
-      substream.consume((substreamEvent: Event<T>) => {
-        //console.log(`substream.consume(${substream.toString()}, ${strFromEvent(substreamEvent)}) (${substreamCount}/${substreamDoneCount}/${streamDone})`);
-        if (substreamEvent.done) {
-          ++substreamDoneCount;
-          if (streamDone && substreamCount == substreamDoneCount) {
-            return concatEventToStream({ done: true });
-          }
-          else {
-            return false;
-          }
-        }
-        else {
-          return concatEventToStream(substreamEvent);
-        }
-      });
-      return false;
-    }
-  };
-}
-
 function reducerFromStreamReducer<TransformedT, AccumulationT>(
   reducer: StreamReducer<TransformedT, AccumulationT>,
   stream: Stream<AccumulationT>): Reducer<TransformedT, void> {
@@ -174,7 +130,6 @@ function transduceToStream<T, TransformedT, AccumulationT>(
 module.exports = {
   concatEvent,
   concatStream,
-  mergeStream,
   transduce,
   transduceToStream
 };

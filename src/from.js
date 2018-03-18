@@ -111,6 +111,7 @@ function of<T>(...args: T[]): Stream<T> {
 
 module.exports = {
   from,
+  fromIterable,
   of,
   throwError: fromError,
 };
