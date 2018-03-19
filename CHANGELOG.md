@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased](https://github.com/craft-ai/alpes/compare/v0.0.1...HEAD) ##
 
+## 0.0.1 - 2018-03-19 ##
+
 - Initial version of **alpes**, a back-pressure stream implementation with a modern API.
 - Introduce the base functional API.
   - `from`: creates a stream from an [`Iterable`](https://developer.mozilla.org/en/docs/Web/JavaScript/Guide/iterable), a Node.JS [`Readable`](https://nodejs.org/api/stream.html#stream_readable_streams), a [`Promise`](https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Global_Objects/Promise) or an [`Error`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error).

@@ -13,3 +13,4 @@ deploy:
     tags: true
     repo: craft-ai/alpes
     node: '8'
+  skip_cleanup: true
