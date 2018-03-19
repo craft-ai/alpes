@@ -22,6 +22,7 @@ const options = {
 
 function benchmark(title) {
   const suite = Benchmark.Suite(title);
+  console.log(`# ${title} #`);
   return suite
     .on('error', function(event){
       console.log('error', event.target.error);

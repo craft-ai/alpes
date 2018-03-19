@@ -133,6 +133,25 @@ test('Asynchronous finite streams can be produced', (t) => {
     .then(() => t.deepEqual(observedArray, [3, 2, 1, 0]));
 });
 
+test('Asynchronous finite streams can be produced (2)', (t) => {
+  const observedArray = [];
+  return produce((push) => {
+    return delay(10)
+      .then(() => push({ value: 'hey' }))
+      .then(() => delay(10))
+      .then(() => push({ value: 'hey' }))
+      .then(() => delay(10))
+      .then(() => push({ value: 'hey' }))
+      .then(() => delay(10))
+      .then(() => push({ done: true }));
+  })
+    .thru(tap((v) => observedArray.push(v)))
+    .thru(drain())
+    .then(() => {
+      t.deepEqual(observedArray, ['hey', 'hey', 'hey']);
+    });
+});
+
 test('Asynchronous finite streams with errors can be produced', (t) => {
   const observedArray = [];
   let value = 3;
