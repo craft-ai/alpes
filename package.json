@@ -1,7 +1,7 @@
 {
   "name": "alpes",
   "version": "0.0.1",
-  "description": "Node.JS backpressure streams with a modern API",
+  "description": "Back-pressure streams with a modern API",
   "author": {
     "name": "craft ai",
     "email": "contact@craft.ai",
