@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added ###
 
 - Introduce `collect` which consumes the stream and returns a promise to an array containing the values of the streams events.
+- Introduce `batch` which groups events in a stream in arrays of up to a given size.
 
 ## 0.0.1 - 2018-03-19 ##
 

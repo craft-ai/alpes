@@ -1,4 +1,5 @@
 // @flow
+const { batch }  = require('./batch');
 const { collect }  = require('./collect');
 const { drain }  = require('./drain');
 const { produce } = require('./produce');
@@ -14,6 +15,7 @@ const { transform }  = require('./transform');
 const { StreamError } = require('./errors');
 
 module.exports = {
+  batch,
   chain,
   collect,
   concat,
