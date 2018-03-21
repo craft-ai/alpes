@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased](https://github.com/craft-ai/alpes/compare/v0.0.1...HEAD) ##
 
+### Added ###
+
+- Introduce `collect` which consumes the stream and returns a promise to an array containing the values of the streams events.
+
 ## 0.0.1 - 2018-03-19 ##
 
 - Initial version of **alpes**, a back-pressure stream implementation with a modern API.
