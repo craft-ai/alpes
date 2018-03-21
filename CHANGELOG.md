@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - Introduce `collect` which consumes the stream and returns a promise to an array containing the values of the streams events.
 - Introduce `batch` which groups events in a stream in arrays of up to a given size.
+- Introduce `skip` and `take` which respectively take or skip a number of events from a stream.
 
 ## 0.0.1 - 2018-03-19 ##
 
