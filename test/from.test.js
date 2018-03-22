@@ -2,8 +2,8 @@
 import fs from 'fs';
 import path from 'path';
 import test from 'ava';
+import { collect, drain, from, StreamError, tap } from '../src';
 import { delay } from '../src/utils';
-import { drain, from, StreamError, tap } from '../src';
 
 test('Can be provided with an array', (t) => {
   const observed = [];
@@ -31,6 +31,12 @@ test('Can be provided with a Promise that will be rejected', (t) => {
   return t.throws(from(delay(100).then(() => Promise.reject(new Error('boouh'))))
     .thru(drain()))
     .then((error) => t.is(error.message, 'boouh'));
+});
+
+test('Can be provided with a Promise that will be fulfilled to null', (t) => {
+  return from(delay(100).then(() => null))
+    .thru(collect())
+    .then((values) => t.deepEqual(values, [null]));
 });
 
 test('Can be provided with an Error', (t) => {

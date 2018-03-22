@@ -11,7 +11,7 @@ function collect<T>(): (Stream<T>) => Promise<T[]> {
         throw event.error;
       }
 
-      if (event.value != null) {
+      if (!event.done) {
         accumulation.push(event.value);
       }
 
