@@ -10,6 +10,14 @@ test('Streams the given values', (t) => {
     .then(() => t.deepEqual(observedArray, [1, 2, 3]));
 });
 
+test('Streams can include "null" values values', (t) => {
+  const observedArray = [];
+  return of(null, null, 3)
+    .thru(tap((v) => observedArray.push(v)))
+    .thru(drain())
+    .then(() => t.deepEqual(observedArray, [null, null, 3]));
+});
+
 test('Can be consumed', (t) => {
   let str = '';
   t.plan(1);

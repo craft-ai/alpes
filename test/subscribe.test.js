@@ -1,7 +1,21 @@
 // @flow
 import test from 'ava';
 import { delay } from '../src/utils';
-import { produce, subscribe } from '../src';
+import { of, produce, subscribe } from '../src';
+
+test('Subscribe can receive null values', (t) => {
+  t.plan(3);
+  return of(null, null, null)
+    .thru(subscribe((event) => {
+      if (event.done) {
+        return;
+      }
+      if (event.error) {
+        return t.fail('Unexpected error');
+      }
+      return delay(100).then(t.is(event.value, null));
+    }));
+});
 
 test('Handles the backpressure', (t) => {
   let value = 1;

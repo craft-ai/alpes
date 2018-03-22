@@ -1,6 +1,6 @@
 // @flow
 import test from 'ava';
-import { drain, from, map, of, subscribe, throwError } from '../src';
+import { collect, drain, from, map, of, subscribe, throwError } from '../src';
 
 test('Mapped function is applied to all the value in the stream', (t) => {
   let iFrom = 0;
@@ -23,6 +23,13 @@ test('Mapped function is applied to all the value in the stream', (t) => {
         ++iTransformed;
       }
     }));
+});
+
+test('Mapped function is also applied to "null" values', (t) => {
+  return from(['a', 'b', 'c', null, 'd'])
+    .thru(map((v) => v ? 'fizz' : 'buzz'))
+    .thru(collect())
+    .then((array) => t.deepEqual(array, ['fizz', 'fizz', 'fizz', 'buzz', 'fizz']));
 });
 
 test('Mapped function can change the type', (t) => {
