@@ -7,3 +7,6 @@
 
 # Editor configuration
 /.vscode
+
+# Backup files
+*.bak

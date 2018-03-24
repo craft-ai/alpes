@@ -15,21 +15,19 @@ function fromReadable<T>(readable: stream.Readable): Stream<T> {
       .removeListener('end', endListener);
   };
   const dataListener = (value) => {
-    const ready = stream.push({ value });
-    if (ready instanceof Promise) {
+    const pushResult = stream.push({ value });
+    if (pushResult instanceof Promise) {
       readable.pause();
-      ready.then((ready) => {
-        if (ready) {
-          readable.resume();
+      pushResult.then((done) => {
+        if (done) {
+          removeListeners();
         }
         else {
-          // The only way it's not ready for more is that the consumer is done.
-          removeListeners();
+          readable.resume();
         }
       });
     }
-    else if (!ready) {
-      // The only way it's not ready for more is that the consumer is done.
+    else if (pushResult) {
       removeListeners();
     }
   };

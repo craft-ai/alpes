@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased](https://github.com/craft-ai/alpes/compare/v0.0.2...HEAD) ##
 
+### Changed ###
+
+- The underlying `BaseSteam.push` now returns whether or not the stream is done.
+
 ## [0.0.2](https://github.com/craft-ai/alpes/compare/v0.0.1...v0.0.2) - 2018-03-23 ##
 
 ### Added ###

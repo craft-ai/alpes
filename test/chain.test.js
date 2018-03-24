@@ -68,11 +68,9 @@ test('Chain can reorder a stream', (t) => {
 
 test('Chain can reorder a stream (2)', (t) => {
   const observedArray = [];
-  return of(60, 100, 140)
+  return of(100, 150)
     .thru(chain((v) => produce((push) => {
       return delay(v)
-        .then(() => push({ value: v }))
-        .then(() => delay(v))
         .then(() => push({ value: v }))
         .then(() => delay(v))
         .then(() => push({ value: v }))
@@ -82,6 +80,6 @@ test('Chain can reorder a stream (2)', (t) => {
     .thru(tap((v) => observedArray.push(v)))
     .thru(drain())
     .then(() => {
-      t.deepEqual(observedArray, [60, 100, 60, 140, 60, 100, 140, 100, 140]);
+      t.deepEqual(observedArray, [100, 150, 100, 150]);
     });
 });

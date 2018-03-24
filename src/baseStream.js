@@ -55,10 +55,12 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
     this.consumer = null;
   }
   _handleConsumerError(error: Error) {
+    //console.log(`${this.toString()}._handleConsumerError(${error.toString()})`);
     this.consumerStatus = CONSUMER_STATUS.DONE;
     this.emit('consumerDone', error);
   }
   _handleConsumerAsyncResult(done: boolean) {
+    //console.log(`${this.toString()}._handleConsumerAsyncResult(${done.toString()})`);
     if (done) {
       this.consumerStatus = CONSUMER_STATUS.DONE;
       this.emit('consumerDone');
@@ -69,6 +71,7 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
     }
   }
   _handleConsumerSyncResult(done: boolean) {
+    //console.log(`${this.toString()}._handleConsumerSyncResult(${done.toString()})`);
     if (done) {
       this.consumerStatus = CONSUMER_STATUS.DONE;
       this.emit('consumerDone');
@@ -94,7 +97,6 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
       const consumerDone = consumer(event);
       if (consumerDone instanceof Promise) {
         this.consumerStatus = CONSUMER_STATUS.BUSY;
-        // console.log('**** busy');
         consumerDone
           .then(this._handleConsumerAsyncResult.bind(this))
           .catch(this._handleConsumerError.bind(this));
@@ -107,19 +109,28 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
       this._handleConsumerError(error);
     }
   }
+  _isReadyToProduce() {
+    switch (this.consumerStatus) {
+      case CONSUMER_STATUS.DONE:
+        return false;
+      case CONSUMER_STATUS.NONE:
+      case CONSUMER_STATUS.BUSY:
+        return this.buffer.length < this.cfg.bufferHighWaterMark;
+      default:
+        return true;
+    }
+  }
   _produce(event: Event<T>): boolean {
     //console.log(`${this.toString()}._produce(${strFromEvent(event)})`);
-    let productionDone = false;
     if (this.producerStatus != PRODUCER_STATUS.ONGOING) {
       throw new StreamError('No event should be produced once the stream has ended.');
     }
-    else if (event.done) {
+
+    if (event.done) {
       this.producerStatus = PRODUCER_STATUS.DONE;
-      productionDone = true;
     }
     else if (event.error) {
       this.producerStatus = PRODUCER_STATUS.ERROR;
-      productionDone = true;
     }
 
     switch (this.consumerStatus) {
@@ -128,7 +139,7 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
       {
         // No consumer or busy consumer, let's buffer the event
         this.buffer.push(event);
-        return !productionDone && this.buffer.length < this.cfg.bufferHighWaterMark;
+        return this._isReadyToProduce();
       }
       case CONSUMER_STATUS.DONE:
       {
@@ -138,7 +149,7 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
       default:
       {
         this._consume(event);
-        return !productionDone;
+        return this._isReadyToProduce();
       }
     }
   }
@@ -163,8 +174,9 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
         const consumerDone = this.consumerStatus == CONSUMER_STATUS.DONE;
         const producerResult = producer(this._produce.bind(this), consumerDone);
         if (producerResult instanceof Promise) {
+          //console.log('calling doConsume once the producer returns');
           producerResult.then(this._doConsume.bind(this));
-          break;
+          return;
         }
         if (consumerDone) {
           break;
@@ -177,12 +189,13 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
     }
   }
   consume(consumer: Consumer<T>): Promise<void> {
-    // console.log(`${this.toString()}.consume(...)`);
+    //console.log(`${this.toString()}.consume(...)`);
     if (this.consumer != null) {
       throw new StreamError('Stream already being consumed.');
     }
     this.consumer = consumer;
     this.consumerStatus = CONSUMER_STATUS.READY;
+    this.emit('consumerReady');
     return new Promise((resolve, reject) => {
       this.once('consumerDone', (error) => {
         if (error) {
@@ -192,24 +205,27 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
           resolve();
         }
       });
+      //console.log('calling doConsume at the start of consumption');
       this._doConsume();
     });
   }
   push(event: Event<T>): Promise<boolean> | boolean {
-    // console.log(`${this.toString()}.push(${strFromEvent(event)})`);
-    switch (this.consumerStatus) {
-      case CONSUMER_STATUS.BUSY:
-        return new Promise(this.once.bind(this, 'consumerReady'))
-          .then(this.push.bind(this, event));
-      default:
-        return this._produce(event);
+    //console.log(`${this.toString()}.push(${strFromEvent(event)})`);
+    if (this._isReadyToProduce()) {
+      this._produce(event);
+      return this.consumerStatus == CONSUMER_STATUS.DONE ||
+        this.producerStatus != PRODUCER_STATUS.ONGOING;
+    }
+    else {
+      return new Promise(this.once.bind(this, 'consumerReady'))
+        .then(this.push.bind(this, event));
     }
   }
   thru<R, Fn: (BaseStream<T>) => R>(f: Fn): R {
     return f(this);
   }
   toString(): string {
-    return `[BaseStream #${this.id} { producer: ${this.producerStatus}, buffer: [${this.buffer.length}], consumer: ${this.consumerStatus} }]`;
+    return `[BaseStream #${this.id} { producer: ${this.producerStatus}, consumer: ${this.consumerStatus}, buffer.length: ${this.buffer.length} }]`;
   }
 }
 
