@@ -1,6 +1,6 @@
 // @flow
 const EventEmitter = require('events');
-const { StreamError } = require('./errors');
+const { AlreadyConsumedStreamError, ProduceEventOnceDoneStreamError } = require('./errors');
 // const { strFromEvent } = require('./basics');
 
 import type { Consumer, Event, Producer, Stream } from './basics';
@@ -71,7 +71,7 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
     }
   }
   _handleConsumerSyncResult(done: boolean) {
-    //console.log(`${this.toString()}._handleConsumerSyncResult(${done.toString()})`);
+    // console.log(`${this.toString()}._handleConsumerSyncResult(${done.toString()})`);
     if (done) {
       this.consumerStatus = CONSUMER_STATUS.DONE;
       this.emit('consumerDone');
@@ -81,7 +81,7 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
     }
   }
   _consume(event: Event<T>) {
-    //console.log(`${this.toString()}._consume(${strFromEvent(event)})`);
+    // console.log(`${this.toString()}._consume(${strFromEvent(event)})`);
     // By construction we're sure that
     //  - `this.consumerStatus == CONSUMER_STATUS.READY`
     // if (this.consumerStatus != CONSUMER_STATUS.READY) {
@@ -109,7 +109,17 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
       this._handleConsumerError(error);
     }
   }
+  _isDone() {
+    return this.consumerStatus == CONSUMER_STATUS.DONE ||
+      this.producerStatus != PRODUCER_STATUS.ONGOING;
+  }
   _isReadyToProduce() {
+    switch (this.producerStatus) {
+      case PRODUCER_STATUS.ERROR:
+      case PRODUCER_STATUS.DONE:
+        return false;
+      default:
+    }
     switch (this.consumerStatus) {
       case CONSUMER_STATUS.DONE:
         return false;
@@ -122,8 +132,8 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
   }
   _produce(event: Event<T>): boolean {
     //console.log(`${this.toString()}._produce(${strFromEvent(event)})`);
-    if (this.producerStatus != PRODUCER_STATUS.ONGOING) {
-      throw new StreamError('No event should be produced once the stream has ended.');
+    if (this._isDone()) {
+      throw new ProduceEventOnceDoneStreamError(event, this);
     }
 
     if (event.done) {
@@ -174,12 +184,11 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
         const consumerDone = this.consumerStatus == CONSUMER_STATUS.DONE;
         const producerResult = producer(this._produce.bind(this), consumerDone);
         if (producerResult instanceof Promise) {
-          //console.log('calling doConsume once the producer returns');
           producerResult.then(this._doConsume.bind(this));
           return;
         }
         if (consumerDone) {
-          break;
+          return;
         }
       }
     }
@@ -191,7 +200,7 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
   consume(consumer: Consumer<T>): Promise<void> {
     //console.log(`${this.toString()}.consume(...)`);
     if (this.consumer != null) {
-      throw new StreamError('Stream already being consumed.');
+      throw new AlreadyConsumedStreamError(this);
     }
     this.consumer = consumer;
     this.consumerStatus = CONSUMER_STATUS.READY;
@@ -209,16 +218,21 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
       this._doConsume();
     });
   }
-  push(event: Event<T>): Promise<boolean> | boolean {
-    //console.log(`${this.toString()}.push(${strFromEvent(event)})`);
-    if (this._isReadyToProduce()) {
+  push(event: Event<T>, resilientToDone: ?boolean): Promise<boolean> | boolean {
+    // console.log(`${this.toString()}.push(${strFromEvent(event)})`);
+    if (this._isDone()) {
+      if (resilientToDone) {
+        return true;
+      }
+      throw new ProduceEventOnceDoneStreamError(event, this);
+    }
+    else if (this._isReadyToProduce()) {
       this._produce(event);
-      return this.consumerStatus == CONSUMER_STATUS.DONE ||
-        this.producerStatus != PRODUCER_STATUS.ONGOING;
+      return this._isDone();
     }
     else {
       return new Promise(this.once.bind(this, 'consumerReady'))
-        .then(this.push.bind(this, event));
+        .then(this.push.bind(this, event, true));
     }
   }
   thru<R, Fn: (BaseStream<T>) => R>(f: Fn): R {
