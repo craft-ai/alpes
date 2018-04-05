@@ -1,16 +1,17 @@
 // @flow
+const { AlreadyConsumedStreamError, ProduceEventOnceDoneStreamError, StreamError } = require('./errors');
 const { batch }  = require('./batch');
 const { chain, concatMap, map, mergeMap }  = require('./map');
 const { collect }  = require('./collect');
 const { concat }  = require('./concat');
 const { drain }  = require('./drain');
-const { from, of, throwError } = require('./from');
+const { filter }  = require('./filter');
 const { fork }  = require('./fork');
+const { from, of, throwError } = require('./from');
 const { merge }  = require('./merge');
 const { produce } = require('./produce');
 const { reduce }  = require('./reduce');
 const { skip }  = require('./skip');
-const { AlreadyConsumedStreamError, ProduceEventOnceDoneStreamError, StreamError } = require('./errors');
 const { subscribe }  = require('./subscribe');
 const { take }  = require('./take');
 const { tap }  = require('./tap');
@@ -25,8 +26,9 @@ module.exports = {
   concat,
   concatMap,
   drain,
-  from,
+  filter,
   fork,
+  from,
   map,
   merge,
   mergeMap,
