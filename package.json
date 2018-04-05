@@ -11,6 +11,7 @@
   "bugs": "https://github.com/craft-ai/alpes/issues",
   "repository": "github:craft-ai/alpes",
   "license": "BSD-3-Clause",
+  "main": "lib/index.js",
   "scripts": {
     "build": "babel src/ -d lib/",
     "prepublish": "yarn run build",
