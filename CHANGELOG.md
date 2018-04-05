@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased](https://github.com/craft-ai/alpes/compare/v0.0.3...HEAD) ##
 
+### Added ###
+
+- Introduce `filter` which selects the event in a stream based on a given predicate evaluated on the values.
+
 ### Fixed ###
 
 - The _main_ file is now correctly specified `require('alpes')` works properly.
