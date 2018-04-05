@@ -25,7 +25,7 @@ function createConsumer<T>(streams: Stream<T>[], streamsDone: boolean[]): Consum
 function fork<T>(count: number): (Stream<T>) => Stream<T>[]{
   return (stream: Stream<T>) => {
     const forks = (new Array(count))
-      .fill(1) // Needed to have an array wih assigned value.
+      .fill(null) // Needed to have an array wih assigned value.
       .map(() => createBaseStream());
     const forksDone = forks.map(() => false);
     const consumer = createConsumer(forks, forksDone);
