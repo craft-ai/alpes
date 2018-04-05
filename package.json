@@ -1,6 +1,6 @@
 {
   "name": "alpes",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Back-pressure streams with a modern API",
   "author": {
     "name": "craft ai",
