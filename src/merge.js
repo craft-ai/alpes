@@ -67,7 +67,10 @@ function mergeStream<T>(stream: Stream<T>) {
       const substream = event.value;
       // Don't wait for the full substream to be consumed.
       substream.consume(mergeSubstreamConsume.bind(null, context));
-      return false;
+      // Forcing the return of a Promise.
+      // This avoids unwinding the full _master_ stream in one go
+      // Which were causing max listeners issues in the underlying event emitter.
+      return Promise.resolve(false);
     }
   };
 }

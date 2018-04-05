@@ -104,7 +104,7 @@ test('Finite streams with errors can be produced (second version)', (t) => {
 
 test('Push a value after done throws an error', (t) => {
   const observedArray = [];
-  return produce((push, next) => {
+  return produce((push) => {
     push({ value: 1 });
     push({ value: 2 });
     push({ done: true });
