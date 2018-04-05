@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased](https://github.com/craft-ai/alpes/compare/v0.0.3...HEAD) ##
 
+### Fixed ###
+
+- The _main_ file is now correctly specified `require('alpes')` works properly.
+
 ## [0.0.3](https://github.com/craft-ai/alpes/compare/v0.0.2...v0.0.3) - 2018-04-05 ##
 
 ### Changed ###

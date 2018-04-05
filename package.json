@@ -7,7 +7,11 @@
     "email": "contact@craft.ai",
     "url": "http://craft.ai/"
   },
+  "homepage": "https://github.com/craft-ai/alpes",
+  "bugs": "https://github.com/craft-ai/alpes/issues",
+  "repository": "github:craft-ai/alpes",
   "license": "BSD-3-Clause",
+  "main": "lib/index.js",
   "scripts": {
     "build": "babel src/ -d lib/",
     "prepublish": "yarn run build",
@@ -40,5 +44,11 @@
     "require": [
       "babel-register"
     ]
+  },
+  "files": [
+    "lib"
+  ],
+  "engines": {
+    "node": ">=6.9.0 <7.0.0 || >=8.9.0"
   }
 }
