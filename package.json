@@ -40,5 +40,8 @@
     "require": [
       "babel-register"
     ]
+  },
+  "engines": {
+    "node": ">=6.9.0 <7.0.0 || >=8.9.0"
   }
 }
