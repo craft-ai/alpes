@@ -104,3 +104,17 @@ test('Works in a nested way', (t) => {
       t.deepEqual(array.sort(), [11, 12, 13, 21, 22, 23, 31, 32, 33]);
     });
 });
+
+test('Handles errors properly', (t) => {
+  return t.throws(
+    of(1, 2, 3)
+      .thru(chain((v) => from(delay(v * 10).then(() => {
+        if (v % 2 != 0) {
+          throw new Error('Odd values are bad');
+        }
+        return `${v}${v}`;
+      }))))
+      .thru(drain()),
+    Error)
+    .then((error) => t.is(error.message, 'Odd values are bad'));
+});
