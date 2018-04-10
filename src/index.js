@@ -10,6 +10,7 @@ const { fork }  = require('./fork');
 const { from, of, throwError } = require('./from');
 const { merge }  = require('./merge');
 const { produce } = require('./produce');
+const { rateLimit }  = require('./rateLimit');
 const { reduce }  = require('./reduce');
 const { skip }  = require('./skip');
 const { subscribe }  = require('./subscribe');
@@ -35,6 +36,7 @@ module.exports = {
   of,
   produce,
   ProduceEventOnceDoneStreamError,
+  rateLimit,
   reduce,
   skip,
   StreamError,

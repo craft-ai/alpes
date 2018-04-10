@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased](https://github.com/craft-ai/alpes/compare/v0.0.4...HEAD) ##
 
+### Added ###
+
+- Introduce `rateLimit` which limits the rate of emitted event to a given interval.
+
 ## [0.0.4](https://github.com/craft-ai/alpes/compare/v0.0.3...v0.0.4) - 2018-04-05 ##
 
 ### Added ###
