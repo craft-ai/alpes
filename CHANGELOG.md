@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased](https://github.com/craft-ai/alpes/compare/v0.0.5...HEAD) ##
 
+### Added ###
+
+- Introduce `scan` which behave similarly to `reduce` but emits all intermediate results in a stream.
+
 ## [0.0.5](https://github.com/craft-ai/alpes/compare/v0.0.4...v0.0.5) - 2018-04-10 ##
 
 ### Added ###
