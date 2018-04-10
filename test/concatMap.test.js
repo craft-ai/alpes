@@ -1,6 +1,6 @@
 // @flow
 import test from 'ava';
-import { concatMap, drain, from, of, produce, subscribe, tap } from '../src';
+import { collect, concatMap, drain, from, of, produce, subscribe, tap } from '../src';
 import { delay } from '../src/utils';
 
 test('Mapped function is applied to all the value in the stream', (t) => {
@@ -83,5 +83,16 @@ test('ConcatMap does not reorder a stream (2)', (t) => {
     .thru(drain())
     .then(() => {
       t.deepEqual(observedArray, [6, 6, 6, 10, 10, 10, 14, 14, 14]);
+    });
+});
+
+test('Works in a nested way', (t) => {
+  return of(1, 2, 3)
+    .thru(concatMap((v1) => of(1, 2, 3)
+      .thru(concatMap((v2) => from(delay(10).then(() => v1 * 10 + v2))))
+    ))
+    .thru(collect())
+    .then((array) => {
+      t.deepEqual(array, [11, 12, 13, 21, 22, 23, 31, 32, 33]);
     });
 });
