@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 - Introduce `rateLimit` which limits the rate of emitted event to a given interval.
 
+## Fixed ##
+
+- Fix a bug occurring mostly when cascading `chain` calls that was causing never-ending streams.
+
 ## [0.0.4](https://github.com/craft-ai/alpes/compare/v0.0.3...v0.0.4) - 2018-04-05 ##
 
 ### Added ###

@@ -1,6 +1,6 @@
 // @flow
 import test from 'ava';
-import { chain, drain, from, of, produce, subscribe, tap } from '../src';
+import { chain, collect, drain, from, of, produce, subscribe, tap } from '../src';
 import { delay } from '../src/utils';
 
 test('Chained function is applied to all the value in the stream', (t) => {
@@ -81,5 +81,15 @@ test('Chain can reorder a stream (2)', (t) => {
     .thru(drain())
     .then(() => {
       t.deepEqual(observedArray, [100, 150, 100, 150]);
+    });
+});
+
+test('Works on delayed producers', (t) => {
+  return of(1, 2, 3, 4)
+    .thru(chain((v) => from(delay(10).then(() => v))))
+    .thru(chain((v) => of(v)))
+    .thru(collect())
+    .then((a) => {
+      t.deepEqual(a, [1, 2, 3, 4]);
     });
 });
