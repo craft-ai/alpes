@@ -22,17 +22,19 @@ function transduce<T, TransformedT, AccumulationT>(
     let finalAccumulation = seeder();
 
     return stream.consume((event) => {
-      //console.log(`${stream.toString()} - consume(${strFromEvent(event)})`);
+      // console.log(`${stream.toString()} - consume(${strFromEvent(event)})`);
       const reducerResult = finalReducer(finalAccumulation, event);
       if (reducerResult instanceof Promise) {
         return reducerResult.then(({ accumulation, done }) => {
           finalAccumulation = accumulation;
+          // console.log(`${stream.toString()} - consume(${strFromEvent(event)}) - async finished`);
           return !!done;
         });
       }
       else {
         const { accumulation, done } = reducerResult;
         finalAccumulation = accumulation;
+        // console.log(`${stream.toString()} - consume(${strFromEvent(event)}) - sync finished`);
         return !!done;
       }
     })
@@ -46,7 +48,7 @@ export type StreamReducer<T, AccumulationT> = (Stream<AccumulationT>) => (Event<
 
 function concatEvent<T>(stream: Stream<T>) {
   return (event: Event<T>): Promise<boolean> | boolean => {
-    // console.log(`concatEvent(${stream.toString()}, ${strFromEvent(event)})`);
+    //console.log(`concatEvent(${stream.toString()}, ${strFromEvent(event)})`);
     const pushResult = stream.push(event);
     if (pushResult instanceof Promise) {
       return pushResult.then((done) => done);

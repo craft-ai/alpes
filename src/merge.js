@@ -7,7 +7,7 @@ const { concatEvent, transduceToStream } = require('./transduce');
 import type { Event, Stream } from './basics';
 
 type MergeContext<T> = {|
-  concatEvent: (event: Event<T>) => Promise<boolean> | boolean,
+  concatEventToStream: (event: Event<T>) => Promise<boolean> | boolean,
   substreamCount: number,
   substreamDoneCount: number,
   done: boolean,
@@ -15,14 +15,14 @@ type MergeContext<T> = {|
 |};
 
 function mergeSubstreamConsume<T>(context: MergeContext<T>, substreamEvent: Event<T>) {
-  //console.log(`substream.consume(${substream.toString()}, ${strFromEvent(substreamEvent)}) (${substreamCount}/${substreamDoneCount}/${streamDone})`);
+  // console.log(`mergeSubstreamConsume(${strFromEvent(substreamEvent)}) (${context.substreamCount}/${context.substreamDoneCount}/${context.done})`);
   if (context.error) {
     return true;
   }
   else if (substreamEvent.done) {
     ++context.substreamDoneCount;
     if (context.done && context.substreamCount == context.substreamDoneCount) {
-      return context.concatEvent({ done: true });
+      return context.concatEventToStream({ done: true });
     }
     else {
       return false;
@@ -30,17 +30,17 @@ function mergeSubstreamConsume<T>(context: MergeContext<T>, substreamEvent: Even
   }
   else if (substreamEvent.error) {
     context.error = true;
-    return context.concatEvent(substreamEvent);
+    return context.concatEventToStream(substreamEvent);
   }
   else {
-    return context.concatEvent(substreamEvent);
+    return context.concatEventToStream(substreamEvent);
   }
 }
 
 function mergeStream<T>(stream: Stream<T>) {
   const context: MergeContext<T> = {
     // $FlowFixMe
-    concatEvent: concatEvent(stream),
+    concatEventToStream: concatEvent(stream),
     substreamCount: 0,
     substreamDoneCount: 0,
     done: false,
@@ -48,11 +48,11 @@ function mergeStream<T>(stream: Stream<T>) {
   };
   // $FlowFixMe
   return (event: Event<Stream<T>>): Promise<boolean> | boolean => {
-    //console.log(`mergeStream(${stream.toString()}, ${strFromEvent(event)}) (${substreamCount}/${substreamDoneCount}/${streamDone})`);
+    // console.log(`mergeStream(${stream.toString()}, ${strFromEvent(event)}) (${context.substreamCount}/${context.substreamDoneCount}/${context.done})`);
     if (event.done) {
       context.done = true;
       if (context.substreamCount == context.substreamDoneCount) {
-        return context.concatEvent({ done: true });
+        return context.concatEventToStream({ done: true });
       }
       else {
         return false;
@@ -60,7 +60,7 @@ function mergeStream<T>(stream: Stream<T>) {
     }
     else if (event.error) {
       context.error = true;
-      return context.concatEvent({ error: event.error });
+      return context.concatEventToStream({ error: event.error });
     }
     else {
       ++context.substreamCount;

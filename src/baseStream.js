@@ -53,6 +53,8 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
 
     this.consumerStatus = CONSUMER_STATUS.NONE;
     this.consumer = null;
+
+    //this.on('consumerReady', () => console.log(`${this.toString()}.on('consumerReady')`));
   }
   _handleConsumerError(error: Error) {
     //console.log(`${this.toString()}._handleConsumerError(${error.toString()})`);
@@ -81,7 +83,7 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
     }
   }
   _consume(event: Event<T>) {
-    // console.log(`${this.toString()}._consume(${strFromEvent(event)})`);
+    //console.log(`${this.toString()}._consume(${strFromEvent(event)})`);
     // By construction we're sure that
     //  - `this.consumerStatus == CONSUMER_STATUS.READY`
     // if (this.consumerStatus != CONSUMER_STATUS.READY) {
@@ -193,7 +195,7 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
       }
     }
 
-    if (this.consumerStatus == CONSUMER_STATUS.BUSY) {
+    if (this.consumerStatus != CONSUMER_STATUS.DONE) {
       this.once('consumerReady', this._doConsume.bind(this));
     }
   }
@@ -219,7 +221,7 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
     });
   }
   push(event: Event<T>, resilientToDone: ?boolean): Promise<boolean> | boolean {
-    // console.log(`${this.toString()}.push(${strFromEvent(event)})`);
+    //console.log(`${this.toString()}.push(${strFromEvent(event)})`);
     if (this._isDone()) {
       if (resilientToDone) {
         return true;
@@ -228,9 +230,11 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
     }
     else if (this._isReadyToProduce()) {
       this._produce(event);
+      //console.log(`${this.toString()}.push(${strFromEvent(event)}) - finished`);
       return this._isDone();
     }
     else {
+      //console.log(`${this.toString()}.push(${strFromEvent(event)}) - busy`);
       return new Promise(this.once.bind(this, 'consumerReady'))
         .then(this.push.bind(this, event, true));
     }

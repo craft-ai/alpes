@@ -1,6 +1,6 @@
 import test from 'ava';
+import { collect, drain, merge, of, produce, StreamError, subscribe, tap } from '../src';
 import { delay } from '../src/utils';
-import { drain, merge, of, produce, StreamError, subscribe, tap } from '../src';
 
 test('Merge throws an error when not provided with any stream', (t) => {
   return t.throws(() => merge(), StreamError);
@@ -99,6 +99,18 @@ test('Merge two fast streams', (t) => {
   return merge(alpha, colors)
     .thru(tap((value) => t.truthy(value)))
     .thru(drain());
+});
+
+test('Works on merged streams producers', (t) => {
+  const stream1 = createStream([1, 2, 3], 10);
+  const stream2 = createStream([4, 5, 6], 10);
+  const stream3 = createStream([7, 8, 9], 10);
+  const stream4 = createStream([10, 11, 12], 10);
+  return merge(merge(merge(stream1, stream2), stream3), stream4)
+    .thru(collect())
+    .then((array) => {
+      t.is(array.length, 12);
+    });
 });
 
 test('Error on one side triggers an error on the merge', (t) => {
