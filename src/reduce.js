@@ -3,7 +3,7 @@ const { transduce } = require('./transduce');
 
 import type { Stream } from './basics';
 
-type Reducer<ConsumedT, ProducedT> = (acc: ?ProducedT, value: ConsumedT) => ?ProducedT | Promise<?ProducedT>;
+export type Reducer<ConsumedT, ProducedT> = (acc: ?ProducedT, value: ConsumedT) => ?ProducedT | Promise<?ProducedT>;
 
 function reduce<ConsumedT, ProducedT>(reducer: Reducer<ConsumedT, ProducedT>, seed?: ProducedT): (Stream<ConsumedT>) => Promise<?ProducedT> {
   return transduce(

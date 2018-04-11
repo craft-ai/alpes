@@ -12,6 +12,7 @@ const { merge }  = require('./merge');
 const { produce } = require('./produce');
 const { rateLimit }  = require('./rateLimit');
 const { reduce }  = require('./reduce');
+const { scan }  = require('./scan');
 const { skip }  = require('./skip');
 const { subscribe }  = require('./subscribe');
 const { take }  = require('./take');
@@ -38,6 +39,7 @@ module.exports = {
   ProduceEventOnceDoneStreamError,
   rateLimit,
   reduce,
+  scan,
   skip,
   StreamError,
   subscribe,

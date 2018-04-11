@@ -134,15 +134,22 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
   }
   _produce(event: Event<T>): boolean {
     //console.log(`${this.toString()}._produce(${strFromEvent(event)})`);
-    if (this._isDone()) {
-      throw new ProduceEventOnceDoneStreamError(event, this);
-    }
-
-    if (event.done) {
-      this.producerStatus = PRODUCER_STATUS.DONE;
-    }
-    else if (event.error) {
-      this.producerStatus = PRODUCER_STATUS.ERROR;
+    switch (this.producerStatus) {
+      case PRODUCER_STATUS.DONE:
+      case PRODUCER_STATUS.ERROR:
+      {
+        // Only throw when the producer has ended (the only case when it's the producer's fault)
+        throw new ProduceEventOnceDoneStreamError(event, this);
+      }
+      default:
+      {
+        if (event.done) {
+          this.producerStatus = PRODUCER_STATUS.DONE;
+        }
+        else if (event.error) {
+          this.producerStatus = PRODUCER_STATUS.ERROR;
+        }
+      }
     }
 
     switch (this.consumerStatus) {
