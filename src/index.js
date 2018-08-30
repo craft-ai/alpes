@@ -7,7 +7,7 @@ const { concat }  = require('./concat');
 const { drain }  = require('./drain');
 const { filter }  = require('./filter');
 const { fork }  = require('./fork');
-const { from, of, throwError } = require('./from');
+const { from, fromEventEmitter, of, throwError } = require('./from');
 const { merge }  = require('./merge');
 const { produce } = require('./produce');
 const { rateLimit }  = require('./rateLimit');
@@ -31,6 +31,7 @@ module.exports = {
   filter,
   fork,
   from,
+  fromEventEmitter,
   map,
   merge,
   mergeMap,
