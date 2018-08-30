@@ -3,47 +3,76 @@ const { Readable } = require('stream');
 const { StreamError } = require('./errors');
 const { createBaseStream } = require('./baseStream');
 
-import type { Push, Stream } from './basics';
+import type { Event, Push, Stream } from './basics';
+import type events from 'events';
 import type stream from 'stream';
 
-function fromReadable<T>(readable: stream.Readable): Stream<T> {
+type PushAndWaitForProducerToBeReady<T> = (Event<T>) => Promise<boolean> | boolean
+
+function fromEventEmitter<T>(
+  eventEmitter: events.EventEmitter,
+  listeners: {
+    [event: string]: (push: PushAndWaitForProducerToBeReady<T>) => Function
+  }): Stream<T> {
   const stream = createBaseStream();
-  const removeListeners = () => {
-    readable
-      .removeListener('data', dataListener)
-      .removeListener('error', errorListener)
-      .removeListener('end', endListener);
-  };
-  const dataListener = (value) => {
-    const pushResult = stream.push({ value });
+  const encapsulatedPush: PushAndWaitForProducerToBeReady<T> = (event) => {
+    const pushResult = stream.push(event);
     if (pushResult instanceof Promise) {
-      readable.pause();
-      pushResult.then((done) => {
+      return pushResult.then((done) => {
         if (done) {
           removeListeners();
         }
-        else {
-          readable.resume();
-        }
+        return done;
       });
     }
     else if (pushResult) {
       removeListeners();
+      return true;
     }
+    return false;
   };
-  const errorListener = (error) => {
-    stream.push({ error });
-    removeListeners();
+
+  const encapsulatedListeners = Object.keys(listeners).map((event) => ({
+    event,
+    listener: listeners[event](encapsulatedPush)
+  }));
+
+  const removeListeners = () => {
+    encapsulatedListeners.forEach(({ event, listener }) => {
+      eventEmitter.removeListener(event, listener);
+    });
   };
-  const endListener = () => {
-    stream.push({ done: true });
-    removeListeners();
-  };
-  readable
-    .on('data', dataListener)
-    .on('error', errorListener)
-    .on('end', endListener)
-    .resume();
+
+  encapsulatedListeners.forEach(({ event, listener }) => {
+    eventEmitter.on(event, listener);
+  });
+
+  return stream;
+}
+
+function fromReadable<T>(readable: stream.Readable): Stream<T> {
+  // $FlowFixMe stream.Readable does not extend events.EventEmitter in the type system
+  const eventEmitter: events.EventEmitter = readable;
+  const stream = fromEventEmitter(
+    eventEmitter,
+    {
+      data: (push) => (value) => {
+        const pushResult = push({ value });
+        if (pushResult instanceof Promise) {
+          readable.pause();
+          pushResult.then((done) => {
+            if (!done) {
+              readable.resume();
+            }
+          });
+        }
+      },
+      error: (push) => (error) => push({ error }),
+      end: (push) => () => push({ done: true })
+    }
+  );
+
+  readable.resume();
 
   return stream;
 }
@@ -109,6 +138,7 @@ function of<T>(...args: T[]): Stream<T> {
 
 module.exports = {
   from,
+  fromEventEmitter,
   fromIterable,
   of,
   throwError: fromError,

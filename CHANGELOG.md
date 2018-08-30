@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased](https://github.com/craft-ai/alpes/compare/v0.0.6...HEAD) ##
 
+### Added ###
+
+- Introduce `fromEventEmitter` which creates a stream from any EventEmitter instance.
+
 ## [0.0.6](https://github.com/craft-ai/alpes/compare/v0.0.5...v0.0.6) - 2018-04-11 ##
 
 ### Added ###
