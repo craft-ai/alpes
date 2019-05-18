@@ -1,9 +1,6 @@
-// @flow
 const { transduce } = require('./transduce');
 
-import type { Stream } from './basics';
-
-function drain<T>(): (Stream<T>) => Promise<void> {
+function drain() {
   return transduce(
     undefined,
     (accumulation, event) => {
@@ -13,7 +10,8 @@ function drain<T>(): (Stream<T>) => Promise<void> {
 
       return { accumulation, done: event.done };
     },
-    () => {});
+    () => {}
+  );
 }
 
 module.exports = {

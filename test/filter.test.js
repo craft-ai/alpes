@@ -1,6 +1,5 @@
-// @flow
-import test from 'ava';
-import { collect, filter, from, of } from '../src';
+const test = require('ava');
+const { collect, filter, from, of } = require('../src');
 
 test('Can filter even values of a stream', (t) => {
   return of(0, 1, 2, 3, 4)
@@ -24,17 +23,21 @@ test('Can filter no values from a stream', (t) => {
 });
 
 test('Handles errors in the stream roperly', (t) => {
-  return t.throws(
+  return t.throwsAsync(
     from(new Error('An error'))
       .thru(filter((v) => v >= 0))
-      .thru(collect()));
+      .thru(collect())
+  );
 });
 
 test('Handles errors throw in the filter properly', (t) => {
-  return t.throws(
+  return t.throwsAsync(
     from(['so cool'])
-      .thru(filter((v) => {
-        throw new Error('An error');
-      }))
-      .thru(collect()));
+      .thru(
+        filter(() => {
+          throw new Error('An error');
+        })
+      )
+      .thru(collect())
+  );
 });

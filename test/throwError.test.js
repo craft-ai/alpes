@@ -1,13 +1,14 @@
-// @flow
-import test from 'ava';
-import  { drain, tap, throwError } from '../src';
+const test = require('ava');
+const { drain, tap, throwError } = require('../src');
 
 test('Throws the given error', (t) => {
   const errorMessage = 'ahahahaha';
-  return t.throws(throwError(new Error(errorMessage))
-    .thru(tap(() => t.fail('Unexpected event in the stream')))
-    .thru(drain()),
-  errorMessage);
+  return t.throwsAsync(
+    throwError(new Error(errorMessage))
+      .thru(tap(() => t.fail('Unexpected event in the stream')))
+      .thru(drain()),
+    errorMessage
+  );
 });
 
 test('Throws the given error properly', (t) => {

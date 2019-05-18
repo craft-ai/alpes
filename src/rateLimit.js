@@ -1,11 +1,7 @@
-// @flow
 const { transduceToStream } = require('./transduce');
 const { delay } = require('./utils');
 
-import type { Stream } from './basics';
-import type { Transformer } from './transduce';
-
-function createRateLimitTransformer<T, AccumulationT>(interval: number): Transformer<T, T, AccumulationT> {
+function createRateLimitTransformer(interval) {
   return (reducer) => {
     let minNextEventTime = 0;
 
@@ -19,20 +15,18 @@ function createRateLimitTransformer<T, AccumulationT>(interval: number): Transfo
         // The rate limit is respected, go go go
         minNextEventTime = eventTime + interval;
         return reducer(accumulation, event);
-      }
-      else {
+      } else {
         // We need to temporize this next event
-        return delay(minNextEventTime - eventTime)
-          .then(() => {
-            minNextEventTime += interval;
-            return reducer(accumulation, event);
-          });
+        return delay(minNextEventTime - eventTime).then(() => {
+          minNextEventTime += interval;
+          return reducer(accumulation, event);
+        });
       }
     };
   };
 }
 
-function rateLimit<T>(interval: number): (Stream<T>) => Stream<T> {
+function rateLimit(interval) {
   return transduceToStream(createRateLimitTransformer(interval));
 }
 

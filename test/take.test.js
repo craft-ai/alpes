@@ -1,7 +1,6 @@
-// @flow
-import test from 'ava';
-import { collect, produce, take } from '../src';
-import { delay } from '../src/utils';
+const test = require('ava');
+const { collect, produce, take } = require('../src');
+const { delay } = require('../src/utils');
 
 test('Can take from an infinite stream', (t) => {
   return produce((push, seed) => {
@@ -63,11 +62,13 @@ test('Is resilient to a negative count', (t) => {
 });
 
 test('Handles errors properly', (t) => {
-  return t.throws(produce((push) => {
-    push({ value: 'gimme' });
-    push({ value: 'gimme' });
-    push({ error: new Error('It is 2 am!') });
-  })
-    .thru(take(5))
-    .thru(collect()));
+  return t.throwsAsync(
+    produce((push) => {
+      push({ value: 'gimme' });
+      push({ value: 'gimme' });
+      push({ error: new Error('It is 2 am!') });
+    })
+      .thru(take(5))
+      .thru(collect())
+  );
 });

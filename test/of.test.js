@@ -1,6 +1,5 @@
-// @flow
-import test from 'ava';
-import { drain, of, tap, transform } from '../src';
+const test = require('ava');
+const { drain, of, tap, transform } = require('../src');
 
 test('Streams the given values', (t) => {
   const observedArray = [];
@@ -22,18 +21,18 @@ test('Can be consumed', (t) => {
   let str = '';
   t.plan(1);
   return of(1, 2, 3)
-    .thru(transform((event, push, next) => {
-      if (event.error) {
-        t.fail(`Unexpected error '${event.error.toString()}'.`);
-      }
-      else if (event.done) {
-        push({ value: str });
-        push({ done: true });
-      }
-      else {
-        str = str.concat(`${event.value}`);
-      }
-    }))
+    .thru(
+      transform((event, push) => {
+        if (event.error) {
+          t.fail(`Unexpected error '${event.error.toString()}'.`);
+        } else if (event.done) {
+          push({ value: str });
+          push({ done: true });
+        } else {
+          str = str.concat(`${event.value}`);
+        }
+      })
+    )
     .thru(tap((v) => t.deepEqual(v, '123')))
     .thru(drain());
 });

@@ -1,19 +1,20 @@
-// @flow
-import test from 'ava';
-import { delay } from '../src/utils';
-import { map, of, produce, rateLimit, reduce } from '../src';
+const test = require('ava');
+const { delay } = require('../src/utils');
+const { map, of, produce, rateLimit, reduce } = require('../src');
 
 test('Can limit the throughput of a stream to one event every 500ms', (t) => {
   return of(0, 1, 2, 3, 4, 5)
     .thru(rateLimit(500))
     .thru(map(() => Date.now()))
-    .thru(reduce((from, to) => {
-      if (from) {
-        t.true(to - from >= 490);
-        t.true(to - from < 550);
-      }
-      return to;
-    }, undefined));
+    .thru(
+      reduce((from, to) => {
+        if (from) {
+          t.true(to - from >= 490);
+          t.true(to - from < 550);
+        }
+        return to;
+      }, undefined)
+    );
 });
 
 test('Does not limit the throughput of a stream when it is slower', (t) => {
@@ -30,11 +31,13 @@ test('Does not limit the throughput of a stream when it is slower', (t) => {
   }, 5)
     .thru(rateLimit(500))
     .thru(map(() => Date.now()))
-    .thru(reduce((from, to) => {
-      if (from) {
-        t.true(to - from >= 990);
-        t.true(to - from < 1010);
-      }
-      return to;
-    }, undefined));
+    .thru(
+      reduce((from, to) => {
+        if (from) {
+          t.true(to - from >= 990);
+          t.true(to - from < 1010);
+        }
+        return to;
+      }, undefined)
+    );
 });

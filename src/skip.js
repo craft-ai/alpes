@@ -1,10 +1,6 @@
-// @flow
 const { transduceToStream } = require('./transduce');
 
-import type { Stream } from './basics';
-import type { Transformer } from './transduce';
-
-function createSkipTransformer<T, AccumulationT>(count: number): Transformer<T, T, AccumulationT> {
+function createSkipTransformer(count) {
   return (reducer) => {
     let skippedCount = 0;
     return (accumulation, event) => {
@@ -23,7 +19,7 @@ function createSkipTransformer<T, AccumulationT>(count: number): Transformer<T, 
   };
 }
 
-function skip<T>(count: number): (Stream<T>) => Stream<T> {
+function skip(count) {
   return transduceToStream(createSkipTransformer(count));
 }
 

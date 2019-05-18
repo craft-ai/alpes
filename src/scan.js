@@ -1,17 +1,12 @@
-// @flow
 const { transduceToStream } = require('./transduce');
 
-import type { Reducer } from './reduce';
-import type { Stream } from './basics';
-
-function scan<ConsumedT, ProducedT>(scanner: Reducer<ConsumedT, ProducedT>, seed?: ProducedT): (Stream<ConsumedT>) => Stream<ProducedT> {
+function scan(scanner, seed) {
   return transduceToStream((reducer) => {
-    let prevProducedValue: ?ProducedT = seed;
+    let prevProducedValue = seed;
     return (accumulation, event) => {
       if (event.error) {
         return reducer(accumulation, { error: event.error });
-      }
-      else if (event.done) {
+      } else if (event.done) {
         return reducer(accumulation, { done: true });
       }
       try {
@@ -21,13 +16,11 @@ function scan<ConsumedT, ProducedT>(scanner: Reducer<ConsumedT, ProducedT>, seed
             prevProducedValue = producedValue;
             return reducer(accumulation, { value: producedValue });
           });
-        }
-        else {
+        } else {
           prevProducedValue = result;
           return reducer(accumulation, { value: result });
         }
-      }
-      catch (error) {
+      } catch (error) {
         return reducer(accumulation, { error });
       }
     };

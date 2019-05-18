@@ -1,12 +1,7 @@
-// @flow
 const { transduceToStream } = require('./transduce');
 const { wrapInPromise } = require('./utils');
 
-import type { Event, Push, Stream } from './basics';
-
-export type Transformer<ConsumedT, ProducedT, SeedT = void> = (event: Event<ConsumedT>, push: Push<ProducedT>, seed: ?SeedT) => ?SeedT | Promise<?SeedT>;
-
-function transform<ConsumedT, ProducedT, SeedT>(transformer: Transformer<ConsumedT, ProducedT, SeedT>, seed: ?SeedT): (Stream<ConsumedT>) => Stream<ProducedT> {
+function transform(transformer, seed) {
   const reducerTransformer = (reducer) => {
     const wrappedTransformer = wrapInPromise(transformer);
     let currentSeed = seed;
@@ -16,25 +11,24 @@ function transform<ConsumedT, ProducedT, SeedT>(transformer: Transformer<Consume
         consumedEvent,
         (producedEvent) => {
           if (result instanceof Promise) {
-            result = result
-              .then(({ accumulation }) => reducer(accumulation, producedEvent));
+            result = result.then(({ accumulation }) =>
+              reducer(accumulation, producedEvent)
+            );
             return false;
-          }
-          else {
+          } else {
             result = reducer(result.accumulation, producedEvent);
             if (result instanceof Promise) {
               return false;
-            }
-            else {
+            } else {
               return !result.done;
             }
           }
         },
-        currentSeed)
-        .then((newSeed) => {
-          currentSeed = newSeed;
-          return result;
-        });
+        currentSeed
+      ).then((newSeed) => {
+        currentSeed = newSeed;
+        return result;
+      });
     };
   };
 

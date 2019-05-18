@@ -1,11 +1,7 @@
-// @flow
 const { strFromEvent } = require('./basics');
 
-import type { Event, Stream } from './basics';
-
-class StreamError<T> extends Error {
-  stream: string;
-  constructor(message: string, stream: ?Stream<T>) {
+class StreamError extends Error {
+  constructor(message, stream) {
     // Calling parent constructor of base Error class.
     super(message);
 
@@ -22,14 +18,19 @@ class StreamError<T> extends Error {
   }
 }
 
-class ProduceEventOnceDoneStreamError<T> extends StreamError<T> {
-  constructor(event: Event<T>, stream: Stream<T>) {
-    super(`Can't produce event ${strFromEvent(event)}, no event should be produced once the stream is done.`, stream);
+class ProduceEventOnceDoneStreamError extends StreamError {
+  constructor(event, stream) {
+    super(
+      `Can't produce event ${strFromEvent(
+        event
+      )}, no event should be produced once the stream is done.`,
+      stream
+    );
   }
 }
 
-class AlreadyConsumedStreamError<T> extends StreamError<T> {
-  constructor(stream: Stream<T>) {
+class AlreadyConsumedStreamError extends StreamError {
+  constructor(stream) {
     super('Stream already being consumed.', stream);
   }
 }

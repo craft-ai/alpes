@@ -1,66 +1,73 @@
-# Changelog #
+# Changelog
 
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/craft-ai/alpes/compare/v0.0.6...HEAD) ##
+## [Unreleased](https://github.com/craft-ai/alpes/compare/v0.0.6...HEAD)
 
-### Added ###
+### Added
 
 - Introduce `fromEventEmitter` which creates a stream from any EventEmitter instance.
 
-## [0.0.6](https://github.com/craft-ai/alpes/compare/v0.0.5...v0.0.6) - 2018-04-11 ##
+### Changed
 
-### Added ###
+- Getting rid of the `flow` typings.
+- Upgrading tests to [`ava`](https://github.com/avajs/ava/releases/tag/v1.4.1) v1.4.1.
+- Introducing [`prettier`](https://prettier.io).
+- Upgrading used tools to their latest releases.
+
+## [0.0.6](https://github.com/craft-ai/alpes/compare/v0.0.5...v0.0.6) - 2018-04-11
+
+### Added
 
 - Introduce `scan` which behave similarly to `reduce` but emits all intermediate results in a stream.
 
-### Fixed ###
+### Fixed
 
 - Fix the `ProduceEventOnceDoneStreamError` that were raised when a substream of a `merge` or `chain` was failing.
 
-## [0.0.5](https://github.com/craft-ai/alpes/compare/v0.0.4...v0.0.5) - 2018-04-10 ##
+## [0.0.5](https://github.com/craft-ai/alpes/compare/v0.0.4...v0.0.5) - 2018-04-10
 
-### Added ###
+### Added
 
 - Introduce `rateLimit` which limits the rate of emitted event to a given interval.
 
-## Fixed ##
+## Fixed
 
 - Fix a bug occurring mostly when cascading `chain` calls that was causing never-ending streams.
 
-## [0.0.4](https://github.com/craft-ai/alpes/compare/v0.0.3...v0.0.4) - 2018-04-05 ##
+## [0.0.4](https://github.com/craft-ai/alpes/compare/v0.0.3...v0.0.4) - 2018-04-05
 
-### Added ###
+### Added
 
 - Introduce `filter` which selects the event in a stream based on a given predicate evaluated on the values.
 
-### Fixed ###
+### Fixed
 
 - The _main_ file is now correctly specified `require('alpes')` works properly.
 
-## [0.0.3](https://github.com/craft-ai/alpes/compare/v0.0.2...v0.0.3) - 2018-04-05 ##
+## [0.0.3](https://github.com/craft-ai/alpes/compare/v0.0.2...v0.0.3) - 2018-04-05
 
-### Changed ###
+### Changed
 
 - The underlying `BaseSteam.push` now returns whether or not the stream is done.
 
-### Added ###
+### Added
 
 - Introduce `fork` which creates any number of stream acting as forks of a given stream.
 - Introduce specific error types `AlreadyConsumedStreamError` and `ProduceEventOnceDoneStreamError` for these specific errors.
 
-## [0.0.2](https://github.com/craft-ai/alpes/compare/v0.0.1...v0.0.2) - 2018-03-23 ##
+## [0.0.2](https://github.com/craft-ai/alpes/compare/v0.0.1...v0.0.2) - 2018-03-23
 
-### Added ###
+### Added
 
 - Introduce `collect` which consumes the stream and returns a promise to an array containing the values of the streams events.
 - Introduce `batch` which groups events in a stream in arrays of up to a given size.
 - Introduce `skip` and `take` which respectively take or skip a number of events from a stream.
 
-## 0.0.1 - 2018-03-19 ##
+## 0.0.1 - 2018-03-19
 
 - Initial version of **alpes**, a back-pressure stream implementation with a modern API.
 - Introduce the base functional API.

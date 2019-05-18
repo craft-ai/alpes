@@ -1,48 +1,40 @@
-// @flow
 const { transduceToStream } = require('./transduce');
 const { mergeStream } = require('./merge');
 const { concatStream } = require('./concat');
 
-import type { Stream } from './basics';
-import type { Transformer } from './transduce';
-
-type Mapper<ConsumedT, ProducedT> = (value: ConsumedT) => ProducedT;
-
-function createMapperTransformer<ConsumedT, ProducedT, AccumulationT>(mapper: Mapper<ConsumedT, ProducedT>): Transformer<ConsumedT, ProducedT, AccumulationT> {
+function createMapperTransformer(mapper) {
   return (reducer) => (accumulation, event) => {
     if (event.error) {
       return reducer(accumulation, { error: event.error });
-    }
-    else if (event.done) {
+    } else if (event.done) {
       return reducer(accumulation, { done: true });
     }
     try {
-      const mappedValue: ProducedT = mapper(event.value);
+      const mappedValue = mapper(event.value);
       return reducer(accumulation, { value: mappedValue });
-    }
-    catch (error) {
+    } catch (error) {
       return reducer(accumulation, { error });
     }
   };
 }
 
-function map<ConsumedT, ProducedT>(mapper: Mapper<ConsumedT, ProducedT>): (Stream<ConsumedT>) => Stream<ProducedT> {
-  const reducerTransformer: Transformer<ConsumedT, ProducedT, void> = createMapperTransformer(mapper);
-  const transducer: (Stream<ConsumedT>) => Stream<ProducedT> = transduceToStream(reducerTransformer);
+function map(mapper) {
+  const reducerTransformer = createMapperTransformer(mapper);
+  const transducer = transduceToStream(reducerTransformer);
   return transducer;
 }
 
-function chain<ConsumedT, ProducedT>(mapper: Mapper<ConsumedT, Stream<ProducedT>>): (Stream<ConsumedT>) => Stream<ProducedT> {
-  const reducerTransformer: Transformer<ConsumedT, Stream<ProducedT>, void> = createMapperTransformer(mapper);
+function chain(mapper) {
+  const reducerTransformer = createMapperTransformer(mapper);
   // $FlowFixMe
-  const transducer: (Stream<ConsumedT>) => Stream<ProducedT> = transduceToStream(reducerTransformer, mergeStream);
+  const transducer = transduceToStream(reducerTransformer, mergeStream);
   return transducer;
 }
 
-function concatMap<ConsumedT, ProducedT>(mapper: Mapper<ConsumedT, Stream<ProducedT>>): (Stream<ConsumedT>) => Stream<ProducedT> {
-  const reducerTransformer: Transformer<ConsumedT, Stream<ProducedT>, void> = createMapperTransformer(mapper);
+function concatMap(mapper) {
+  const reducerTransformer = createMapperTransformer(mapper);
   // $FlowFixMe
-  const transducer: (Stream<ConsumedT>) => Stream<ProducedT> = transduceToStream(reducerTransformer, concatStream);
+  const transducer = transduceToStream(reducerTransformer, concatStream);
   return transducer;
 }
 
