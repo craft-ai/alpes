@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Introducing [`prettier`](https://prettier.io).
 - Upgrading used tools to their latest releases.
 
+### Deprecated
+
+- Node.js 6 is no longer supported
+
 ## [0.0.6](https://github.com/craft-ai/alpes/compare/v0.0.5...v0.0.6) - 2018-04-11
 
 ### Added
