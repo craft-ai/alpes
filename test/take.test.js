@@ -1,6 +1,5 @@
 const test = require('ava');
-const { collect, produce, take } = require('../src');
-const { delay } = require('../src/utils');
+const { collect, delay, produce, take } = require('../src');
 
 test('Can take from an infinite stream', (t) => {
   return produce((push, seed) => {

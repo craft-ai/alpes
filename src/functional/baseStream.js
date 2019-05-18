@@ -2,8 +2,8 @@ const EventEmitter = require('events');
 const {
   AlreadyConsumedStreamError,
   ProduceEventOnceDoneStreamError
-} = require('./errors');
-// const { strFromEvent } = require('./basics');
+} = require('../shared/errors');
+// const { strFromEvent } = require('../basics');
 
 const PRODUCER_STATUS = {
   ONGOING: 'ONGOING',

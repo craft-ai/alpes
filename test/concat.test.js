@@ -1,6 +1,7 @@
 const test = require('ava');
 const {
   concat,
+  delay,
   drain,
   from,
   of,
@@ -9,7 +10,6 @@ const {
   subscribe,
   tap
 } = require('../src');
-const { delay } = require('../src/utils');
 
 test('Concat throws an error when not provided with any stream', (t) => {
   return t.throws(() => concat(), StreamError);

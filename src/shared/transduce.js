@@ -1,4 +1,4 @@
-const { createBaseStream } = require('./baseStream');
+const { createBaseStream } = require('../functional/baseStream');
 // const { strFromEvent } = require('./basics');
 
 function transduce(transformer, reducer, seeder) {

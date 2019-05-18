@@ -1,6 +1,5 @@
 const test = require('ava');
-const { collect, of, scan, throwError } = require('../src');
-const { delay } = require('../src/utils');
+const { collect, delay, of, scan, throwError } = require('../src');
 
 test('The scanner is applied to all the value in the stream', (t) => {
   return of(0, 1, 2, 3)

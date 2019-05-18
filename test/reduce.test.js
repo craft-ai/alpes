@@ -1,6 +1,5 @@
 const test = require('ava');
-const { delay } = require('../src/utils');
-const { of, reduce, throwError } = require('../src');
+const { delay, of, reduce, throwError } = require('../src');
 
 test('Reduce function is applied to all the value in the stream', (t) => {
   return of(0, 1, 2, 3)

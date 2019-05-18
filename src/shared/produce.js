@@ -1,4 +1,4 @@
-const { createBaseStream } = require('./baseStream');
+const { createBaseStream } = require('../functional/baseStream');
 
 function produce(producer, seed) {
   let currentSeed = seed;

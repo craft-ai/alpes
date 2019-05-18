@@ -1,4 +1,4 @@
-const { createBaseStream } = require('./baseStream');
+const { createBaseStream } = require('../functional/baseStream');
 
 function createConsumer(streams, streamsDone) {
   return (event) => {

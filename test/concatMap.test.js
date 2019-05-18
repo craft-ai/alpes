@@ -2,6 +2,7 @@ const test = require('ava');
 const {
   collect,
   concatMap,
+  delay,
   drain,
   from,
   of,
@@ -9,7 +10,6 @@ const {
   subscribe,
   tap
 } = require('../src');
-const { delay } = require('../src/utils');
 
 test('Mapped function is applied to all the value in the stream', (t) => {
   let iFrom = 0;

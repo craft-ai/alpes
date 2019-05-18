@@ -1,6 +1,5 @@
 const test = require('ava');
-const { delay } = require('../src/utils');
-const { of, produce, subscribe } = require('../src');
+const { delay, of, produce, subscribe } = require('../src');
 
 test('Subscribe can receive null values', (t) => {
   t.plan(3);

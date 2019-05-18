@@ -4,12 +4,12 @@ const {
   chain,
   collect,
   concatMap,
+  delay,
   fork,
   from,
   produce,
   take
 } = require('../src');
-const { delay } = require('../src/utils');
 
 test('It is possible to fork a simple stream', (t) => {
   const stream = from([1, 2, 3, 4, 5]);

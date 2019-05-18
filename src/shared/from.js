@@ -1,6 +1,6 @@
 const { Readable } = require('stream');
 const { StreamError } = require('./errors');
-const { createBaseStream } = require('./baseStream');
+const { createBaseStream } = require('../functional/baseStream');
 
 function fromEventEmitter(eventEmitter, listeners) {
   const stream = createBaseStream();
@@ -119,14 +119,9 @@ function from(input) {
   }
 }
 
-function of(...args) {
-  return fromIterable(args);
-}
-
 module.exports = {
   from,
   fromEventEmitter,
   fromIterable,
-  of,
   throwError: fromError
 };
