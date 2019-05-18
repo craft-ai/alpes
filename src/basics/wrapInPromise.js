@@ -8,13 +8,4 @@ function wrapInPromise(f) {
   };
 }
 
-function delay(time) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, time);
-  });
-}
-
-module.exports = {
-  delay,
-  wrapInPromise
-};
+module.exports = wrapInPromise;

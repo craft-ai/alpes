@@ -1,5 +1,3 @@
-const { createBaseStream } = require('./baseStream');
-
 function produce(producer, seed) {
   let currentSeed = seed;
   const internalProducer = (push, done) => {
@@ -28,7 +26,7 @@ function produce(producer, seed) {
     }
   };
 
-  return createBaseStream(internalProducer);
+  return (createStream) => createStream(internalProducer);
 }
 
 module.exports = {

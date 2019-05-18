@@ -1,6 +1,7 @@
 const test = require('ava');
 const {
   collect,
+  delay,
   drain,
   merge,
   of,
@@ -9,7 +10,6 @@ const {
   subscribe,
   tap
 } = require('../src');
-const { delay } = require('../src/utils');
 
 test('Merge throws an error when not provided with any stream', (t) => {
   return t.throws(() => merge(), StreamError);

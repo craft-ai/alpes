@@ -1,4 +1,5 @@
-const { strFromEvent } = require('./basics');
+const strFromEvent = require('./strFromEvent');
+const strFromStream = require('./strFromStream');
 
 class StreamError extends Error {
   constructor(message, stream) {
@@ -13,7 +14,7 @@ class StreamError extends Error {
 
     // Attach the metadata from the stream
     if (stream) {
-      this.stream = stream.toString();
+      this.stream = strFromStream(stream);
     }
   }
 }

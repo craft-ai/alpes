@@ -1,6 +1,6 @@
 const { transduceToStream } = require('./transduce');
-const { mergeStream } = require('./merge');
-const { concatStream } = require('./concat');
+const { mergeStream } = require('../combiners/merge');
+const { concatStream } = require('../combiners/concat');
 
 function createMapperTransformer(mapper) {
   return (reducer) => (accumulation, event) => {
@@ -26,14 +26,12 @@ function map(mapper) {
 
 function chain(mapper) {
   const reducerTransformer = createMapperTransformer(mapper);
-  // $FlowFixMe
   const transducer = transduceToStream(reducerTransformer, mergeStream);
   return transducer;
 }
 
 function concatMap(mapper) {
   const reducerTransformer = createMapperTransformer(mapper);
-  // $FlowFixMe
   const transducer = transduceToStream(reducerTransformer, concatStream);
   return transducer;
 }

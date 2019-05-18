@@ -1,6 +1,12 @@
 const test = require('ava');
-const { delay } = require('../src/utils');
-const { drain, produce, StreamError, tap, transform } = require('../src');
+const {
+  delay,
+  drain,
+  produce,
+  StreamError,
+  tap,
+  transform
+} = require('../src');
 
 test('Finite streams can be produced', (t) => {
   const observedArray = [];

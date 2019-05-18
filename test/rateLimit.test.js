@@ -1,6 +1,5 @@
 const test = require('ava');
-const { delay } = require('../src/utils');
-const { map, of, produce, rateLimit, reduce } = require('../src');
+const { delay, map, of, produce, rateLimit, reduce } = require('../src');
 
 test('Can limit the throughput of a stream to one event every 500ms', (t) => {
   return of(0, 1, 2, 3, 4, 5)

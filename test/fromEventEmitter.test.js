@@ -1,6 +1,6 @@
 const EventEmitter = require('events');
 const test = require('ava');
-const { collect, fromEventEmitter } = require('../src');
+const { collect, fromEventEmitter } = require('../src/functional');
 
 test('Can be provided with a simple event emitter', (t) => {
   const eventEmitter = new EventEmitter();
@@ -17,7 +17,7 @@ test('Can be provided with a simple event emitter', (t) => {
   eventEmitter.emit('number', 45);
   eventEmitter.emit('string', 'bluh');
   eventEmitter.emit('end');
-  return stream.thru(collect()).then((events) => {
+  return collect()(stream).then((events) => {
     t.is(eventEmitter.listenerCount('string'), 0);
     t.is(eventEmitter.listenerCount('number'), 0);
     t.is(eventEmitter.listenerCount('end'), 0);

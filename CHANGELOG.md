@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Added
 
+- Introduce a new default [_fluent_](https://en.wikipedia.org/wiki/Fluent_interface) stream interface, basically instead of doing `map(v => v / 2)(stream)` you can write `stream.map(v => v / 2)` which work in the same way. To use the fully functional version of the stream import `'alpes/functional'`.
 - Introduce `fromEventEmitter` which creates a stream from any EventEmitter instance.
 
 ### Changed
@@ -17,6 +18,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Upgrading tests to [`ava`](https://github.com/avajs/ava/releases/tag/v1.4.1) v1.4.1.
 - Introducing [`prettier`](https://prettier.io).
 - Upgrading used tools to their latest releases.
+
+### Deprecated
+
+- Node.js 6 is no longer supported
 
 ## [0.0.6](https://github.com/craft-ai/alpes/compare/v0.0.5...v0.0.6) - 2018-04-11
 

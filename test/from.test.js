@@ -1,8 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const test = require('ava');
-const { collect, drain, from, StreamError, tap } = require('../src');
-const { delay } = require('../src/utils');
+const { collect, delay, drain, from, StreamError, tap } = require('../src');
 
 test('Can be provided with an array', (t) => {
   const observed = [];

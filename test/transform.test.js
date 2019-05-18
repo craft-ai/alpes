@@ -1,6 +1,5 @@
 const test = require('ava');
-const { delay } = require('../src/utils');
-const { drain, of, tap, throwError, transform } = require('../src');
+const { delay, drain, of, tap, throwError, transform } = require('../src');
 
 test('Can map each values of a stream', (t) => {
   const observed = [];

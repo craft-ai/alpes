@@ -4,11 +4,8 @@ function strFromEvent(event) {
   } else if (event.done) {
     return '<Done>';
   } else {
-    // $FlowFixMe
     return `<Value=${event.value}>`;
   }
 }
 
-module.exports = {
-  strFromEvent
-};
+module.exports = strFromEvent;

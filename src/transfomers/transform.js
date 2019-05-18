@@ -1,5 +1,5 @@
 const { transduceToStream } = require('./transduce');
-const { wrapInPromise } = require('./utils');
+const wrapInPromise = require('../basics/wrapInPromise');
 
 function transform(transformer, seed) {
   const reducerTransformer = (reducer) => {
