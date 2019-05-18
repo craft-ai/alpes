@@ -1,6 +1,15 @@
-import test from 'ava';
-import { concat, drain, from, of, produce, StreamError, subscribe, tap } from '../src';
-import { delay } from '../src/utils';
+const test = require('ava');
+const {
+  concat,
+  drain,
+  from,
+  of,
+  produce,
+  StreamError,
+  subscribe,
+  tap
+} = require('../src');
+const { delay } = require('../src/utils');
 
 test('Concat throws an error when not provided with any stream', (t) => {
   return t.throws(() => concat(), StreamError);
@@ -8,8 +17,8 @@ test('Concat throws an error when not provided with any stream', (t) => {
 
 test('Concat act as a passthrough when only one stream is provided', (t) => {
   let eventCounter = 0;
-  return concat(of('un', 'dos', 'tres'))
-    .thru(subscribe((event) => {
+  return concat(of('un', 'dos', 'tres')).thru(
+    subscribe((event) => {
       switch (eventCounter) {
         case 0:
           t.truthy(event.value);
@@ -31,7 +40,8 @@ test('Concat act as a passthrough when only one stream is provided', (t) => {
           t.fail();
       }
       ++eventCounter;
-    }));
+    })
+  );
 });
 
 test('Concat keeps the order of the streams', (t) => {
@@ -40,11 +50,14 @@ test('Concat keeps the order of the streams', (t) => {
   t.plan(7);
   return concat(
     of(1, 2, 3),
-    produce((push) => delay(100).then(() => {
-      push({ value: 4 });
-      push({ done: true });
-    })),
-    of(5, 6, 7))
+    produce((push) =>
+      delay(100).then(() => {
+        push({ value: 4 });
+        push({ done: true });
+      })
+    ),
+    of(5, 6, 7)
+  )
     .thru(tap((value) => t.is(value, ++counter)))
     .thru(drain());
 });
@@ -54,13 +67,13 @@ test('Concat stops on error', (t) => {
   const errorMessage = 'fire in the hole!';
 
   t.plan(6);
-  return t.throws(
-    concat(
-      of(1, 2, 3, 4),
-      from(new Error('fire in the hole!')),
-      of(5, 6, 7))
-      .thru(tap((value) => t.is(value, ++counter)))
-      .thru(drain()), Error)
+  return t
+    .throws(
+      concat(of(1, 2, 3, 4), from(new Error('fire in the hole!')), of(5, 6, 7))
+        .thru(tap((value) => t.is(value, ++counter)))
+        .thru(drain()),
+      Error
+    )
     .then((error) => {
       t.is(error.message, errorMessage);
     });

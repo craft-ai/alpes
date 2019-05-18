@@ -1,9 +1,8 @@
-// @flow
-import fs from 'fs';
-import path from 'path';
-import test from 'ava';
-import { collect, drain, from, StreamError, tap } from '../src';
-import { delay } from '../src/utils';
+const fs = require('fs');
+const path = require('path');
+const test = require('ava');
+const { collect, drain, from, StreamError, tap } = require('../src');
+const { delay } = require('../src/utils');
 
 test('Can be provided with an array', (t) => {
   const observed = [];
@@ -28,8 +27,12 @@ test('Can be provided with a Promise that will be fulfilled', (t) => {
 });
 
 test('Can be provided with a Promise that will be rejected', (t) => {
-  return t.throws(from(delay(100).then(() => Promise.reject(new Error('boouh'))))
-    .thru(drain()))
+  return t
+    .throws(
+      from(delay(100).then(() => Promise.reject(new Error('boouh')))).thru(
+        drain()
+      )
+    )
     .then((error) => t.is(error.message, 'boouh'));
 });
 
@@ -40,8 +43,8 @@ test('Can be provided with a Promise that will be fulfilled to null', (t) => {
 });
 
 test('Can be provided with an Error', (t) => {
-  return t.throws(from(new Error('blop'))
-    .thru(drain()))
+  return t
+    .throws(from(new Error('blop')).thru(drain()))
     .then((error) => t.is(error.message, 'blop'));
 });
 
@@ -79,9 +82,16 @@ test('Can be provided with a bad Readable', (t) => {
 });
 
 test('Fails when no argument is provided', (t) => {
-  return t.throws(
-    // $FlowFixMe check error when flow doesn't yell
-    from().thru(drain()),
-    StreamError)
-    .then((error) => t.is(error.message, 'Unable to create a stream, \'from\' only supports iterable, Readable stream or Error.'));
+  return t
+    .throws(
+      // $FlowFixMe check error when flow doesn't yell
+      from().thru(drain()),
+      StreamError
+    )
+    .then((error) =>
+      t.is(
+        error.message,
+        "Unable to create a stream, 'from' only supports iterable, Readable stream or Error."
+      )
+    );
 });

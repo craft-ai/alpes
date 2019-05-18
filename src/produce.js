@@ -1,13 +1,8 @@
-// @flow
 const { createBaseStream } = require('./baseStream');
 
-import type { Producer as BaseProducer, Push, Stream } from './basics';
-
-export type Producer<ProducedT, SeedT> = (push: Push<ProducedT>, seed: ?SeedT) => ?SeedT | Promise<?SeedT>;
-
-function produce<ProducedT, SeedT>(producer: Producer<ProducedT, SeedT>, seed: ?SeedT): Stream<ProducedT> {
+function produce(producer, seed) {
   let currentSeed = seed;
-  const internalProducer: BaseProducer<ProducedT> = (push, done) => {
+  const internalProducer = (push, done) => {
     if (done) {
       return;
     }
@@ -23,13 +18,11 @@ function produce<ProducedT, SeedT>(producer: Producer<ProducedT, SeedT>, seed: ?
             push({ error });
             return;
           });
-      }
-      else {
+      } else {
         currentSeed = producerResult;
         return;
       }
-    }
-    catch (error) {
+    } catch (error) {
       push({ error });
       return;
     }

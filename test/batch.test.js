@@ -1,6 +1,5 @@
-// @flow
-import test from 'ava';
-import { batch, collect, from, of } from '../src';
+const test = require('ava');
+const { batch, collect, from, of } = require('../src');
 
 test('Batch emits arrays of the given size from a stream', (t) => {
   return of(0, 1, 2, 3, 4, 5)
@@ -34,5 +33,6 @@ test('Batch handles errors properly', (t) => {
   return t.throws(
     from(new Error('An error'))
       .thru(batch(3))
-      .thru(collect()));
+      .thru(collect())
+  );
 });

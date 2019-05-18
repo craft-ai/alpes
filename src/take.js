@@ -1,10 +1,6 @@
-// @flow
 const { transduceToStream } = require('./transduce');
 
-import type { Stream } from './basics';
-import type { Transformer } from './transduce';
-
-function createTakeTransformer<T, AccumulationT>(count: number): Transformer<T, T, AccumulationT> {
+function createTakeTransformer(count) {
   return (reducer) => {
     let takenCount = 0;
     return (accumulation, event) => {
@@ -20,7 +16,7 @@ function createTakeTransformer<T, AccumulationT>(count: number): Transformer<T, 
   };
 }
 
-function take<T>(count: number): (Stream<T>) => Stream<T> {
+function take(count) {
   return transduceToStream(createTakeTransformer(count));
 }
 

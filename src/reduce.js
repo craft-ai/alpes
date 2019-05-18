@@ -1,31 +1,24 @@
-// @flow
 const { transduce } = require('./transduce');
 
-import type { Stream } from './basics';
-
-export type Reducer<ConsumedT, ProducedT> = (acc: ?ProducedT, value: ConsumedT) => ?ProducedT | Promise<?ProducedT>;
-
-function reduce<ConsumedT, ProducedT>(reducer: Reducer<ConsumedT, ProducedT>, seed?: ProducedT): (Stream<ConsumedT>) => Promise<?ProducedT> {
+function reduce(reducer, seed) {
   return transduce(
     undefined,
     (accumulation, event) => {
       if (event.error) {
         throw event.error;
-      }
-      else if (event.done) {
+      } else if (event.done) {
         return { accumulation, done: true };
-      }
-      else {
+      } else {
         const result = reducer(accumulation, event.value);
         if (result instanceof Promise) {
           return result.then((accumulation) => ({ accumulation, done: false }));
-        }
-        else {
+        } else {
           return { accumulation: result, done: false };
         }
       }
     },
-    () => seed);
+    () => seed
+  );
 }
 
 module.exports = {

@@ -1,11 +1,6 @@
-// @flow
 const { transduce } = require('./transduce');
 
-import type { Event, Stream } from './basics';
-
-type Subscriber<T> = (event: Event<T>) => Promise<void> | void;
-
-function subscribe<T>(subscriber: Subscriber<T>): (Stream<T>) => Promise<void> {
+function subscribe(subscriber) {
   return transduce(
     undefined,
     (_, event) => {
@@ -22,7 +17,8 @@ function subscribe<T>(subscriber: Subscriber<T>): (Stream<T>) => Promise<void> {
         done
       };
     },
-    () => undefined);
+    () => undefined
+  );
 }
 
 module.exports = {

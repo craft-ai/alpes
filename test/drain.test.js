@@ -1,6 +1,5 @@
-// @flow
-import test from 'ava';
-import { drain, of, StreamError, tap, throwError } from '../src';
+const test = require('ava');
+const { drain, of, StreamError, tap, throwError } = require('../src');
 
 test('Unable to drain a single stream twice', (t) => {
   const stream = of(0, 1, 2);

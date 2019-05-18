@@ -1,6 +1,5 @@
-// @flow
-import test from 'ava';
-import { collect, from, of } from '../src';
+const test = require('ava');
+const { collect, from, of } = require('../src');
 
 test('Collect the values from a stream', (t) => {
   return of(0, 1, 2)

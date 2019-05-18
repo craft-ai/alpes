@@ -1,12 +1,9 @@
-// @flow
 const { transduce } = require('./transduce');
 
-import type { Event, Stream } from './basics';
-
-function collect<T>(): (Stream<T>) => Promise<T[]> {
+function collect() {
   return transduce(
     undefined,
-    (accumulation: T[], event: Event<T>) => {
+    (accumulation, event) => {
       if (event.error) {
         throw event.error;
       }
@@ -17,7 +14,8 @@ function collect<T>(): (Stream<T>) => Promise<T[]> {
 
       return { accumulation, done: event.done };
     },
-    () => []);
+    () => []
+  );
 }
 
 module.exports = {

@@ -1,9 +1,5 @@
 {
-  "extends": [
-    "craft-ai",
-    "plugin:flowtype/recommended"
-  ],
-  "plugins": [
-    "flowtype"
-  ]
+  "env": { "es6": true, "node": true },
+  "extends": ["eslint:recommended", "prettier"],
+  "plugins": ["prettier"]
 }

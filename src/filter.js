@@ -1,17 +1,10 @@
-// @flow
 const { transduceToStream } = require('./transduce');
 
-import type { Stream } from './basics';
-import type { Transformer } from './transduce';
-
-type Filterer<T> = (value: T) => boolean;
-
-function createFiltererTransformer<T, AccumulationT>(filterer: Filterer<T>): Transformer<T, T, AccumulationT> {
+function createFiltererTransformer(filterer) {
   return (reducer) => (accumulation, event) => {
     if (event.error) {
       return reducer(accumulation, { error: event.error });
-    }
-    else if (event.done) {
+    } else if (event.done) {
       return reducer(accumulation, { done: true });
     }
     try {
@@ -20,16 +13,15 @@ function createFiltererTransformer<T, AccumulationT>(filterer: Filterer<T>): Tra
         return reducer(accumulation, { value: event.value });
       }
       return { accumulation, done: false };
-    }
-    catch (error) {
+    } catch (error) {
       return reducer(accumulation, { error });
     }
   };
 }
 
-function filter<T>(filterer: Filterer<T>): (Stream<T>) => Stream<T> {
-  const reducerTransformer: Transformer<T, T, void> = createFiltererTransformer(filterer);
-  const transducer: (Stream<T>) => Stream<T> = transduceToStream(reducerTransformer);
+function filter(filterer) {
+  const reducerTransformer = createFiltererTransformer(filterer);
+  const transducer = transduceToStream(reducerTransformer);
   return transducer;
 }
 

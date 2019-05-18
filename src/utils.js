@@ -1,17 +1,14 @@
-// @flow
-
-function wrapInPromise<Output>(f: (...args: Array<any>) => Promise<Output> | Output): (...args: Array<any>) => Promise<Output> {
-  return (...args: Array<any>) => {
+function wrapInPromise(f) {
+  return (...args) => {
     try {
       return Promise.resolve(f(...args));
-    }
-    catch (error) {
+    } catch (error) {
       return Promise.reject(error);
     }
   };
 }
 
-function delay(time: number): Promise<void> {
+function delay(time) {
   return new Promise((resolve) => {
     setTimeout(resolve, time);
   });

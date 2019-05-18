@@ -1,9 +1,10 @@
+/* eslint-disable no-console */
 const Benchmark = require('benchmark');
 
 function wrapRunner(benchmarkPromise) {
   return (deferred) => {
     benchmarkPromise()
-      .then((value) => {
+      .then(() => {
         deferred.resolve();
       })
       .catch((error) => {
@@ -24,10 +25,10 @@ function benchmark(title) {
   const suite = Benchmark.Suite(title);
   console.log(`# ${title} #`);
   return suite
-    .on('error', function(event){
+    .on('error', function(event) {
       console.log('error', event.target.error);
     })
-    .on('cycle', function(event){
+    .on('cycle', function(event) {
       console.log(event.target.toString());
     });
 }

@@ -1,16 +1,15 @@
-// @flow
 const EventEmitter = require('events');
-const { AlreadyConsumedStreamError, ProduceEventOnceDoneStreamError } = require('./errors');
+const {
+  AlreadyConsumedStreamError,
+  ProduceEventOnceDoneStreamError
+} = require('./errors');
 // const { strFromEvent } = require('./basics');
-
-import type { Consumer, Event, Producer, Stream } from './basics';
 
 const PRODUCER_STATUS = {
   ONGOING: 'ONGOING',
   DONE: 'DONE',
   ERROR: 'ERROR'
 };
-type ProducerStatus = $Keys<typeof PRODUCER_STATUS>;
 
 const CONSUMER_STATUS = {
   NONE: 'NONE',
@@ -18,31 +17,15 @@ const CONSUMER_STATUS = {
   READY: 'READY',
   DONE: 'DONE'
 };
-type ConsumerStatus = $Keys<typeof CONSUMER_STATUS>;
 
-export type Configuration = {|
-  bufferHighWaterMark: number
-|}
-
-const DEFAULT_INTERNAL_STREAM_CONFIGURATION : Configuration = {
+const DEFAULT_INTERNAL_STREAM_CONFIGURATION = {
   bufferHighWaterMark: 100
 };
 
 let nextStreamId = 0;
 
-class BaseStream<T> extends EventEmitter implements Stream<T> {
-  id: number;
-
-  cfg: Configuration;
-
-  producer: ?Producer<T>;
-  producerStatus: ProducerStatus;
-  buffer: Event<T>[];
-
-  consumer: ?Consumer<T>;
-  consumerStatus: ConsumerStatus;
-
-  constructor(producer: ?Producer<T>, cfg: Configuration = DEFAULT_INTERNAL_STREAM_CONFIGURATION) {
+class BaseStream extends EventEmitter {
+  constructor(producer, cfg = DEFAULT_INTERNAL_STREAM_CONFIGURATION) {
     super();
     this.id = nextStreamId++;
 
@@ -56,33 +39,31 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
 
     //this.on('consumerReady', () => console.log(`${this.toString()}.on('consumerReady')`));
   }
-  _handleConsumerError(error: Error) {
+  _handleConsumerError(error) {
     //console.log(`${this.toString()}._handleConsumerError(${error.toString()})`);
     this.consumerStatus = CONSUMER_STATUS.DONE;
     this.emit('consumerDone', error);
   }
-  _handleConsumerAsyncResult(done: boolean) {
+  _handleConsumerAsyncResult(done) {
     //console.log(`${this.toString()}._handleConsumerAsyncResult(${done.toString()})`);
     if (done) {
       this.consumerStatus = CONSUMER_STATUS.DONE;
       this.emit('consumerDone');
-    }
-    else {
+    } else {
       this.consumerStatus = CONSUMER_STATUS.READY;
       this.emit('consumerReady');
     }
   }
-  _handleConsumerSyncResult(done: boolean) {
+  _handleConsumerSyncResult(done) {
     // console.log(`${this.toString()}._handleConsumerSyncResult(${done.toString()})`);
     if (done) {
       this.consumerStatus = CONSUMER_STATUS.DONE;
       this.emit('consumerDone');
-    }
-    else {
+    } else {
       this.consumerStatus = CONSUMER_STATUS.READY;
     }
   }
-  _consume(event: Event<T>) {
+  _consume(event) {
     //console.log(`${this.toString()}._consume(${strFromEvent(event)})`);
     // By construction we're sure that
     //  - `this.consumerStatus == CONSUMER_STATUS.READY`
@@ -93,8 +74,7 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
     // if (this.consumer == null) {
     //   throw new Error('this.consumerStatus should not be \'READY\' if no consumer is defined.');
     // }
-    // $FlowFixMe
-    const consumer: Consumer<T> = this.consumer;
+    const consumer = this.consumer;
     try {
       const consumerDone = consumer(event);
       if (consumerDone instanceof Promise) {
@@ -102,18 +82,18 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
         consumerDone
           .then(this._handleConsumerAsyncResult.bind(this))
           .catch(this._handleConsumerError.bind(this));
-      }
-      else {
+      } else {
         this._handleConsumerSyncResult(consumerDone);
       }
-    }
-    catch (error) {
+    } catch (error) {
       this._handleConsumerError(error);
     }
   }
   _isDone() {
-    return this.consumerStatus == CONSUMER_STATUS.DONE ||
-      this.producerStatus != PRODUCER_STATUS.ONGOING;
+    return (
+      this.consumerStatus == CONSUMER_STATUS.DONE ||
+      this.producerStatus != PRODUCER_STATUS.ONGOING
+    );
   }
   _isReadyToProduce() {
     switch (this.producerStatus) {
@@ -132,21 +112,18 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
         return true;
     }
   }
-  _produce(event: Event<T>): boolean {
+  _produce(event) {
     //console.log(`${this.toString()}._produce(${strFromEvent(event)})`);
     switch (this.producerStatus) {
       case PRODUCER_STATUS.DONE:
-      case PRODUCER_STATUS.ERROR:
-      {
+      case PRODUCER_STATUS.ERROR: {
         // Only throw when the producer has ended (the only case when it's the producer's fault)
         throw new ProduceEventOnceDoneStreamError(event, this);
       }
-      default:
-      {
+      default: {
         if (event.done) {
           this.producerStatus = PRODUCER_STATUS.DONE;
-        }
-        else if (event.error) {
+        } else if (event.error) {
           this.producerStatus = PRODUCER_STATUS.ERROR;
         }
       }
@@ -154,19 +131,16 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
 
     switch (this.consumerStatus) {
       case CONSUMER_STATUS.NONE:
-      case CONSUMER_STATUS.BUSY:
-      {
+      case CONSUMER_STATUS.BUSY: {
         // No consumer or busy consumer, let's buffer the event
         this.buffer.push(event);
         return this._isReadyToProduce();
       }
-      case CONSUMER_STATUS.DONE:
-      {
+      case CONSUMER_STATUS.DONE: {
         // The consumer is done, let's just stop guys!
         return false;
       }
-      default:
-      {
+      default: {
         this._consume(event);
         return this._isReadyToProduce();
       }
@@ -180,7 +154,7 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
       this.buffer.length > 0 &&
       this.consumerStatus == CONSUMER_STATUS.READY
     ) {
-      const event : Event<T> = this.buffer.shift();
+      const event = this.buffer.shift();
       this._consume(event);
     }
     // 2 - nothing in the buffer, let's produce!
@@ -206,7 +180,7 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
       this.once('consumerReady', this._doConsume.bind(this));
     }
   }
-  consume(consumer: Consumer<T>): Promise<void> {
+  consume(consumer) {
     //console.log(`${this.toString()}.consume(...)`);
     if (this.consumer != null) {
       throw new AlreadyConsumedStreamError(this);
@@ -218,8 +192,7 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
       this.once('consumerDone', (error) => {
         if (error) {
           reject(error);
-        }
-        else {
+        } else {
           resolve();
         }
       });
@@ -227,34 +200,40 @@ class BaseStream<T> extends EventEmitter implements Stream<T> {
       this._doConsume();
     });
   }
-  push(event: Event<T>, resilientToDone: ?boolean): Promise<boolean> | boolean {
+  push(event, resilientToDone) {
     //console.log(`${this.toString()}.push(${strFromEvent(event)})`);
     if (this._isDone()) {
       if (resilientToDone) {
         return true;
       }
       throw new ProduceEventOnceDoneStreamError(event, this);
-    }
-    else if (this._isReadyToProduce()) {
+    } else if (this._isReadyToProduce()) {
       this._produce(event);
       //console.log(`${this.toString()}.push(${strFromEvent(event)}) - finished`);
       return this._isDone();
-    }
-    else {
+    } else {
       //console.log(`${this.toString()}.push(${strFromEvent(event)}) - busy`);
-      return new Promise(this.once.bind(this, 'consumerReady'))
-        .then(this.push.bind(this, event, true));
+      return new Promise(this.once.bind(this, 'consumerReady')).then(
+        this.push.bind(this, event, true)
+      );
     }
   }
-  thru<R, Fn: (BaseStream<T>) => R>(f: Fn): R {
+  thru(f) {
     return f(this);
   }
-  toString(): string {
-    return `[BaseStream #${this.id} { producer: ${this.producerStatus}, consumer: ${this.consumerStatus}, buffer.length: ${this.buffer.length} }]`;
+  toString() {
+    return `[BaseStream #${this.id} { producer: ${
+      this.producerStatus
+    }, consumer: ${this.consumerStatus}, buffer.length: ${
+      this.buffer.length
+    } }]`;
   }
 }
 
-function createBaseStream<T>(producer: ?Producer<T>, cfg: Configuration = DEFAULT_INTERNAL_STREAM_CONFIGURATION): Stream<T> {
+function createBaseStream(
+  producer,
+  cfg = DEFAULT_INTERNAL_STREAM_CONFIGURATION
+) {
   return new BaseStream(producer, cfg);
 }
 

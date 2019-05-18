@@ -1,7 +1,6 @@
-// @flow
-import test from 'ava';
-import { delay } from '../src/utils';
-import { drain, produce, StreamError, tap, transform } from '../src';
+const test = require('ava');
+const { delay } = require('../src/utils');
+const { drain, produce, StreamError, tap, transform } = require('../src');
 
 test('Finite streams can be produced', (t) => {
   const observedArray = [];
@@ -25,10 +24,12 @@ test('Pauses the production if there is a slow consumer', (t) => {
     }
     push({ done: true });
   })
-    .thru(transform((event, push) => {
-      observedCount++;
-      return delay(10).then(() => push(event));
-    }))
+    .thru(
+      transform((event, push) => {
+        observedCount++;
+        return delay(10).then(() => push(event));
+      })
+    )
     .thru(drain())
     .then(() => t.is(observedCount, 201));
 });
@@ -38,7 +39,7 @@ test('Pauses the production if there is a slow consumer (second version)', (t) =
   let observedCount = 0;
   let producedCount = 0;
   return produce((push) => {
-    for (; producedCount < totalCount ; ++producedCount) {
+    for (; producedCount < totalCount; ++producedCount) {
       if (!push({ value: `hop #${producedCount}` })) {
         ++producedCount;
         return;
@@ -46,20 +47,21 @@ test('Pauses the production if there is a slow consumer (second version)', (t) =
     }
     push({ done: true });
   })
-    .thru(transform((event, push) => {
-      return delay(10).then(() => {
-        if (!event.done) {
-          observedCount++;
-          t.true(observedCount <= producedCount);
-          // Keep a maximum lag between the producer and observer
-          t.true(producedCount - observedCount <= 100);
-          t.true(push(event));
-        }
-        else {
-          t.false(push(event));
-        }
-      });
-    }))
+    .thru(
+      transform((event, push) => {
+        return delay(10).then(() => {
+          if (!event.done) {
+            observedCount++;
+            t.true(observedCount <= producedCount);
+            // Keep a maximum lag between the producer and observer
+            t.true(producedCount - observedCount <= 100);
+            t.true(push(event));
+          } else {
+            t.false(push(event));
+          }
+        });
+      })
+    )
     .thru(drain())
     .then(() => t.is(observedCount, totalCount));
 });
@@ -67,39 +69,43 @@ test('Pauses the production if there is a slow consumer (second version)', (t) =
 test('Finite streams with errors can be produced', (t) => {
   const observedArray = [];
   let value = 0;
-  return t.throws(
-    produce((push) => {
-      push({ value: value++ });
-      if (value > 4) {
-        push({ error: new Error('my cool error') });
-      }
-    })
-      .thru(tap((v) => observedArray.push(v)))
-      .thru(drain()),
-    Error
-  ).then((error) => {
-    t.is(error.message, 'my cool error');
-    t.deepEqual(observedArray, [0, 1, 2, 3, 4]);
-  });
+  return t
+    .throws(
+      produce((push) => {
+        push({ value: value++ });
+        if (value > 4) {
+          push({ error: new Error('my cool error') });
+        }
+      })
+        .thru(tap((v) => observedArray.push(v)))
+        .thru(drain()),
+      Error
+    )
+    .then((error) => {
+      t.is(error.message, 'my cool error');
+      t.deepEqual(observedArray, [0, 1, 2, 3, 4]);
+    });
 });
 
 test('Finite streams with errors can be produced (second version)', (t) => {
   const observedArray = [];
   let value = 0;
-  return t.throws(
-    produce((push) => {
-      push({ value: value++ });
-      if (value > 4) {
-        throw new Error('my cool error');
-      }
-    })
-      .thru(tap((v) => observedArray.push(v)))
-      .thru(drain()),
-    Error
-  ).then((error) => {
-    t.is(error.message, 'my cool error');
-    t.deepEqual(observedArray, [0, 1, 2, 3, 4]);
-  });
+  return t
+    .throws(
+      produce((push) => {
+        push({ value: value++ });
+        if (value > 4) {
+          throw new Error('my cool error');
+        }
+      })
+        .thru(tap((v) => observedArray.push(v)))
+        .thru(drain()),
+      Error
+    )
+    .then((error) => {
+      t.is(error.message, 'my cool error');
+      t.deepEqual(observedArray, [0, 1, 2, 3, 4]);
+    });
 });
 
 test('Push a value after done throws an error', (t) => {
@@ -117,16 +123,17 @@ test('Push a value after done throws an error', (t) => {
 
 test('Asynchronous finite streams can be produced', (t) => {
   const observedArray = [];
-  return produce((push, value) => delay(500)
-    .then(() => {
-      value = value || 0;
-      push({ value: value-- });
-      if (value < 0) {
-        push({ done: true });
-      }
-      return value;
-    })
-    , 3
+  return produce(
+    (push, value) =>
+      delay(500).then(() => {
+        value = value || 0;
+        push({ value: value-- });
+        if (value < 0) {
+          push({ done: true });
+        }
+        return value;
+      }),
+    3
   )
     .thru(tap((v) => observedArray.push(v)))
     .thru(drain())
@@ -155,18 +162,19 @@ test('Asynchronous finite streams can be produced (2)', (t) => {
 test('Asynchronous finite streams with errors can be produced', (t) => {
   const observedArray = [];
   let value = 3;
-  return t.throws(
-    produce((push) =>
-      delay(500)
-        .then(() => {
+  return t
+    .throws(
+      produce((push) =>
+        delay(500).then(() => {
           push({ value: value-- });
           if (value < 0) {
             return Promise.reject(new Error('my cool error'));
           }
         })
+      )
+        .thru(tap((v) => observedArray.push(v)))
+        .thru(drain())
     )
-      .thru(tap((v) => observedArray.push(v)))
-      .thru(drain()))
     .then((error) => {
       t.is(error.message, 'my cool error');
       t.deepEqual(observedArray, [3, 2, 1, 0]);
@@ -180,17 +188,20 @@ test('Infinite streams and slow consumer do not override the callstack', (t) => 
   return produce((push) => {
     push({ value: value++ });
   })
-    .thru(transform((event, push) => {
-      return new Promise((resolve) => setTimeout(() => {
-        if (event.error || event.done || event.value < LIMIT) {
-          push(event);
-        }
-        else {
-          push({ done: true });
-        }
-        resolve();
-      }, 100));
-    }))
+    .thru(
+      transform((event, push) => {
+        return new Promise((resolve) =>
+          setTimeout(() => {
+            if (event.error || event.done || event.value < LIMIT) {
+              push(event);
+            } else {
+              push({ done: true });
+            }
+            resolve();
+          }, 100)
+        );
+      })
+    )
     .thru(tap((v) => observedArray.push(v)))
     .thru(drain())
     .then(() => t.deepEqual(observedArray, [0, 1, 2, 3, 4, 5]));

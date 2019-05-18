@@ -1,6 +1,15 @@
-import test from 'ava';
-import { collect, drain, merge, of, produce, StreamError, subscribe, tap } from '../src';
-import { delay } from '../src/utils';
+const test = require('ava');
+const {
+  collect,
+  drain,
+  merge,
+  of,
+  produce,
+  StreamError,
+  subscribe,
+  tap
+} = require('../src');
+const { delay } = require('../src/utils');
 
 test('Merge throws an error when not provided with any stream', (t) => {
   return t.throws(() => merge(), StreamError);
@@ -8,8 +17,8 @@ test('Merge throws an error when not provided with any stream', (t) => {
 
 test('Merge act as a passthrough when only one stream is provided', (t) => {
   let eventCounter = 0;
-  return merge(of('un', 'dos', 'tres'))
-    .thru(subscribe((event) => {
+  return merge(of('un', 'dos', 'tres')).thru(
+    subscribe((event) => {
       switch (eventCounter) {
         case 0:
           t.truthy(event.value);
@@ -31,12 +40,37 @@ test('Merge act as a passthrough when only one stream is provided', (t) => {
           t.fail();
       }
       ++eventCounter;
-    }));
+    })
+  );
 });
 
 const ALPHABET = [
-  'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
-  'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'
+  'a',
+  'b',
+  'c',
+  'd',
+  'e',
+  'f',
+  'g',
+  'h',
+  'i',
+  'j',
+  'k',
+  'l',
+  'm',
+  'n',
+  'o',
+  'p',
+  'q',
+  'r',
+  's',
+  't',
+  'u',
+  'v',
+  'w',
+  'x',
+  'y',
+  'z'
 ];
 
 const COLORS = [
@@ -60,8 +94,8 @@ const COLORS = [
 function createStream(sourceArray, delayTime = 0) {
   let index = 0;
   if (delayTime > 0) {
-    return produce((push) => delay(delayTime)
-      .then(() => {
+    return produce((push) =>
+      delay(delayTime).then(() => {
         push({ value: sourceArray[index] });
         index++;
         if (index >= sourceArray.length) {
@@ -69,8 +103,7 @@ function createStream(sourceArray, delayTime = 0) {
         }
       })
     );
-  }
-  else {
+  } else {
     return produce((push) => {
       push({ value: sourceArray[index] });
       index++;
@@ -117,17 +150,33 @@ test('Error on one side triggers an error on the merge', (t) => {
   const alpha = createStream(ALPHABET, 200);
   const colors = createStream(COLORS, 300);
   const errorMessage = 'saperlipopette';
-  const errorAfter500ms = produce((push) => delay(500).then(() => { throw new Error(errorMessage); }));
+  const errorAfter500ms = produce(() =>
+    delay(500).then(() => {
+      throw new Error(errorMessage);
+    })
+  );
 
   let productionInterrupted = false;
 
-  return t.throws(
-    merge(
-      alpha.thru(tap(() => { t.false(productionInterrupted); })),
-      colors.thru(tap(() => { t.false(productionInterrupted); })),
-      errorAfter500ms)
-      .thru(tap((value) => t.truthy(value)))
-      .thru(drain()), Error)
+  return t
+    .throws(
+      merge(
+        alpha.thru(
+          tap(() => {
+            t.false(productionInterrupted);
+          })
+        ),
+        colors.thru(
+          tap(() => {
+            t.false(productionInterrupted);
+          })
+        ),
+        errorAfter500ms
+      )
+        .thru(tap((value) => t.truthy(value)))
+        .thru(drain()),
+      Error
+    )
     .then((error) => {
       productionInterrupted = true;
       t.is(error.message, errorMessage);

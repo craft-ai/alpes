@@ -1,16 +1,26 @@
-// @flow
-import test from 'ava';
-import { AlreadyConsumedStreamError, chain, collect, concatMap, fork, from, produce, take } from '../src';
-import { delay } from '../src/utils';
+const test = require('ava');
+const {
+  AlreadyConsumedStreamError,
+  chain,
+  collect,
+  concatMap,
+  fork,
+  from,
+  produce,
+  take
+} = require('../src');
+const { delay } = require('../src/utils');
 
 test('It is possible to fork a simple stream', (t) => {
   const stream = from([1, 2, 3, 4, 5]);
   const forks = fork(4)(stream);
 
   return Promise.all(
-    forks
-      .map((fork) => collect()(fork)
-        .then((collected) => t.deepEqual(collected, [1, 2, 3, 4, 5])))
+    forks.map((fork) =>
+      collect()(fork).then((collected) =>
+        t.deepEqual(collected, [1, 2, 3, 4, 5])
+      )
+    )
   );
 });
 
@@ -20,9 +30,11 @@ test('Forked stream can be asynchronously treated', (t) => {
   const delayEvents = concatMap((v) => from(delay(50).then(() => v)));
 
   return Promise.all(
-    forks
-      .map((fork) => collect()(delayEvents(fork))
-        .then((collected) => t.deepEqual(collected, [1, 2, 3, 4, 5])))
+    forks.map((fork) =>
+      collect()(delayEvents(fork)).then((collected) =>
+        t.deepEqual(collected, [1, 2, 3, 4, 5])
+      )
+    )
   );
 });
 
@@ -75,17 +87,19 @@ test('Stream with errors can be forked', (t) => {
         push({ value });
         return value;
       });
-    }
-    else {
-      throw (new Error(ERROR_MSG));
+    } else {
+      throw new Error(ERROR_MSG);
     }
   }, -1);
   const forks = fork(3)(stream);
 
-  return Promise.all(forks.map((fork) =>
-    t.throws(collect()(fork), Error)
-      .then((error) => t.is(error.message, ERROR_MSG))
-  ));
+  return Promise.all(
+    forks.map((fork) =>
+      t
+        .throws(collect()(fork), Error)
+        .then((error) => t.is(error.message, ERROR_MSG))
+    )
+  );
 });
 
 test('Unable to fork a stream already being consumer', (t) => {

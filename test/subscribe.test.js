@@ -1,12 +1,11 @@
-// @flow
-import test from 'ava';
-import { delay } from '../src/utils';
-import { of, produce, subscribe } from '../src';
+const test = require('ava');
+const { delay } = require('../src/utils');
+const { of, produce, subscribe } = require('../src');
 
 test('Subscribe can receive null values', (t) => {
   t.plan(3);
-  return of(null, null, null)
-    .thru(subscribe((event) => {
+  return of(null, null, null).thru(
+    subscribe((event) => {
       if (event.done) {
         return;
       }
@@ -14,7 +13,8 @@ test('Subscribe can receive null values', (t) => {
         return t.fail('Unexpected error');
       }
       return delay(100).then(t.is(event.value, null));
-    }));
+    })
+  );
 });
 
 test('Handles the backpressure', (t) => {
@@ -29,17 +29,18 @@ test('Handles the backpressure', (t) => {
       push({ done: true });
     }
   })
-    .thru(subscribe((event) => {
-      if (event.value) {
-        // console.log(`-> ${event.value}`);
-        t.is(event.value, expectedValue);
-        ++expectedValue;
-        return delay(100);
-      }
-      else if (event.done) {
-        done = true;
-      }
-    }))
+    .thru(
+      subscribe((event) => {
+        if (event.value) {
+          // console.log(`-> ${event.value}`);
+          t.is(event.value, expectedValue);
+          ++expectedValue;
+          return delay(100);
+        } else if (event.done) {
+          done = true;
+        }
+      })
+    )
     .then(() => t.true(done));
 });
 
@@ -59,16 +60,17 @@ test('Handles the backpressure (2)', (t) => {
       }
     }
   })
-    .thru(subscribe((event) => {
-      if (event.value) {
-        // console.log(`-> ${event.value}`);
-        t.is(event.value, expectedValue);
-        ++expectedValue;
-        return delay(100);
-      }
-      else if (event.done) {
-        done = true;
-      }
-    }))
+    .thru(
+      subscribe((event) => {
+        if (event.value) {
+          // console.log(`-> ${event.value}`);
+          t.is(event.value, expectedValue);
+          ++expectedValue;
+          return delay(100);
+        } else if (event.done) {
+          done = true;
+        }
+      })
+    )
     .then(() => t.true(done));
 });

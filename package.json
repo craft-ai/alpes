@@ -11,42 +11,32 @@
   "bugs": "https://github.com/craft-ai/alpes/issues",
   "repository": "github:craft-ai/alpes",
   "license": "BSD-3-Clause",
-  "main": "lib/index.js",
+  "main": "src/index.js",
   "scripts": {
-    "build": "babel src/ -d lib/",
-    "prepublish": "yarn run build",
     "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "test:unit": "nyc -- ava",
-    "test": "yarn run test:unit && yarn run flow && yarn run lint",
+    "test": "yarn run test:unit && yarn run lint",
     "benchmark:concat": "NODE_ENV=production node ./benchmark/concat.benchmark.js",
     "benchmark:drain": "NODE_ENV=production node ./benchmark/drain.benchmark.js",
     "benchmark:mapReduce": "NODE_ENV=production node ./benchmark/mapReduce.benchmark.js",
     "benchmark:merge": "NODE_ENV=production node ./benchmark/merge.benchmark.js",
-    "benchmark": "yarn run build && yarn run benchmark:concat && yarn run benchmark:drain && yarn run benchmark:mapReduce && yarn run benchmark:merge"
+    "benchmark": "yarn run benchmark:concat && yarn run benchmark:drain && yarn run benchmark:mapReduce && yarn run benchmark:merge"
   },
   "dependencies": {},
   "devDependencies": {
     "ava": "^0.25.0",
-    "babel-cli": "^6.26.0",
-    "babel-eslint": "^8.0.2",
-    "babel-preset-flow": "^6.23.0",
     "benchmark": "^2.1.4",
-    "eslint": "^4.11.0",
-    "eslint-config-craft-ai": "^2.3.0",
-    "eslint-plugin-flowtype": "^2.39.1",
-    "eslint-plugin-wyze": "^3.3.1",
-    "flow-bin": "^0.59.0",
+    "eslint": "^5.16.0",
+    "eslint-config-prettier": "^4.3.0",
+    "eslint-plugin-prettier": "^3.1.0",
     "highland": "^2.11.1",
     "most": "^1.7.2",
-    "nyc": "^11.3.0"
-  },
-  "ava": {
-    "require": [
-      "babel-register"
-    ]
+    "nyc": "^11.3.0",
+    "prettier": "1.17.1"
   },
   "files": [
-    "lib"
+    "src"
   ],
   "engines": {
     "node": ">=6.9.0 <7.0.0 || >=8.9.0"
