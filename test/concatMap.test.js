@@ -62,7 +62,7 @@ test('Mapped function can change the type', (t) => {
 
 test('Mapped function can throw called on errors', (t) => {
   return t
-    .throws(
+    .throwsAsync(
       of('foo', 'bar', 'baz')
         .thru(
           concatMap((v) => {

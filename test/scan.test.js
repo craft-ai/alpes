@@ -25,7 +25,7 @@ test('The scanner can return a promise', (t) => {
 
 test('The scanner is not called on errors', (t) => {
   return t
-    .throws(
+    .throwsAsync(
       throwError(new Error('a bad error'))
         .thru(scan(() => t.fail('should not be called'), 0))
         .thru(collect()),
@@ -38,7 +38,7 @@ test('The scanner is not called on errors', (t) => {
 
 test('The scanner can throw', (t) => {
   return t
-    .throws(
+    .throwsAsync(
       of(1, 2, 3)
         .thru(
           scan((acc, v) => {

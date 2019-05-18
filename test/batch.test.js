@@ -30,7 +30,7 @@ test('Batch is resilient to negative count', (t) => {
 });
 
 test('Batch handles errors properly', (t) => {
-  return t.throws(
+  return t.throwsAsync(
     from(new Error('An error'))
       .thru(batch(3))
       .thru(collect())

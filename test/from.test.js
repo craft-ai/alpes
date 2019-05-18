@@ -28,7 +28,7 @@ test('Can be provided with a Promise that will be fulfilled', (t) => {
 
 test('Can be provided with a Promise that will be rejected', (t) => {
   return t
-    .throws(
+    .throwsAsync(
       from(delay(100).then(() => Promise.reject(new Error('boouh')))).thru(
         drain()
       )
@@ -44,7 +44,7 @@ test('Can be provided with a Promise that will be fulfilled to null', (t) => {
 
 test('Can be provided with an Error', (t) => {
   return t
-    .throws(from(new Error('blop')).thru(drain()))
+    .throwsAsync(from(new Error('blop')).thru(drain()))
     .then((error) => t.is(error.message, 'blop'));
 });
 
@@ -78,12 +78,12 @@ test('Can be provided with a bad Readable', (t) => {
     { encoding: 'utf-8' }
   );
 
-  return t.throws(from(myReadable).thru(drain()), Error);
+  return t.throwsAsync(from(myReadable).thru(drain()), Error);
 });
 
 test('Fails when no argument is provided', (t) => {
   return t
-    .throws(
+    .throwsAsync(
       // $FlowFixMe check error when flow doesn't yell
       from().thru(drain()),
       StreamError

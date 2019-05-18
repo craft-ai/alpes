@@ -15,7 +15,7 @@ test('Empty stream is collected as an empty array', (t) => {
 
 test('Is rejected when the stream throws an error', (t) => {
   const ERROR_MESSAGE = 'This is a test error message';
-  return t.throws(
+  return t.throwsAsync(
     from(new Error(ERROR_MESSAGE)).thru(collect()),
     ERROR_MESSAGE
   );

@@ -22,7 +22,7 @@ test('The reduce function can retrieve a promise', (t) => {
 
 test('The reduce function is not called on errors', (t) => {
   return t
-    .throws(
+    .throwsAsync(
       throwError(new Error('a bad error')).thru(
         reduce(() => t.fail('should not be called'), 0)
       ),
@@ -35,7 +35,7 @@ test('The reduce function is not called on errors', (t) => {
 
 test('The reduce function can throw', (t) => {
   return t
-    .throws(
+    .throwsAsync(
       of(1, 2, 3).thru(
         reduce((acc, v) => {
           if (v == 2) {

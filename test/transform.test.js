@@ -79,7 +79,7 @@ test('Can filter the values of a stream', (t) => {
 test('Can throw an error on any value', (t) => {
   const observed = [];
   return t
-    .throws(
+    .throwsAsync(
       of(1, 2, 3, 4)
         .thru(
           transform((event, push) => {
@@ -123,7 +123,7 @@ test('Can throw an error whenever (reject)', (t) => {
 test('Can throw an error when done', (t) => {
   const observed = [];
   return t
-    .throws(
+    .throwsAsync(
       of(1, 2, 3, 4)
         .thru(
           transform((event, push) => {

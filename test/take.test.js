@@ -62,7 +62,7 @@ test('Is resilient to a negative count', (t) => {
 });
 
 test('Handles errors properly', (t) => {
-  return t.throws(
+  return t.throwsAsync(
     produce((push) => {
       push({ value: 'gimme' });
       push({ value: 'gimme' });

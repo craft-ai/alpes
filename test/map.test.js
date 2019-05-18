@@ -69,7 +69,7 @@ test('Mapped function can change the type', (t) => {
 
 test('Mapped function not called on errors', (t) => {
   t.plan(1);
-  return t.throws(
+  return t.throwsAsync(
     throwError(new Error('this is an error'))
       .thru(
         map(() => {
@@ -82,7 +82,7 @@ test('Mapped function not called on errors', (t) => {
 
 test('Mapped function can throw called on errors', (t) => {
   return t
-    .throws(
+    .throwsAsync(
       of('foo', 'bar', 'baz')
         .thru(
           map((v) => {

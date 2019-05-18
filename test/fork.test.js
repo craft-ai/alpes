@@ -96,7 +96,7 @@ test('Stream with errors can be forked', (t) => {
   return Promise.all(
     forks.map((fork) =>
       t
-        .throws(collect()(fork), Error)
+        .throwsAsync(collect()(fork), Error)
         .then((error) => t.is(error.message, ERROR_MSG))
     )
   );

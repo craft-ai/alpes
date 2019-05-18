@@ -3,7 +3,7 @@ const { drain, tap, throwError } = require('../src');
 
 test('Throws the given error', (t) => {
   const errorMessage = 'ahahahaha';
-  return t.throws(
+  return t.throwsAsync(
     throwError(new Error(errorMessage))
       .thru(tap(() => t.fail('Unexpected event in the stream')))
       .thru(drain()),

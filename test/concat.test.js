@@ -68,7 +68,7 @@ test('Concat stops on error', (t) => {
 
   t.plan(6);
   return t
-    .throws(
+    .throwsAsync(
       concat(of(1, 2, 3, 4), from(new Error('fire in the hole!')), of(5, 6, 7))
         .thru(tap((value) => t.is(value, ++counter)))
         .thru(drain()),

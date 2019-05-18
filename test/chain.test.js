@@ -62,7 +62,7 @@ test('Chained function can change the type', (t) => {
 
 test('Chained function can throw called on errors', (t) => {
   return t
-    .throws(
+    .throwsAsync(
       of('foo', 'bar', 'baz')
         .thru(
           chain((v) => {
@@ -135,7 +135,7 @@ test('Works in a nested way', (t) => {
 
 test('Handles errors properly', (t) => {
   return t
-    .throws(
+    .throwsAsync(
       of(1, 2, 3)
         .thru(
           chain((v) =>

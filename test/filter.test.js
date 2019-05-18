@@ -23,7 +23,7 @@ test('Can filter no values from a stream', (t) => {
 });
 
 test('Handles errors in the stream roperly', (t) => {
-  return t.throws(
+  return t.throwsAsync(
     from(new Error('An error'))
       .thru(filter((v) => v >= 0))
       .thru(collect())
@@ -31,7 +31,7 @@ test('Handles errors in the stream roperly', (t) => {
 });
 
 test('Handles errors throw in the filter properly', (t) => {
-  return t.throws(
+  return t.throwsAsync(
     from(['so cool'])
       .thru(
         filter(() => {

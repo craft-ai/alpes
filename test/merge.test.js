@@ -159,7 +159,7 @@ test('Error on one side triggers an error on the merge', (t) => {
   let productionInterrupted = false;
 
   return t
-    .throws(
+    .throwsAsync(
       merge(
         alpha.thru(
           tap(() => {

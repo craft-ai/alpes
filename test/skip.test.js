@@ -30,7 +30,7 @@ test('Is resilient to negative count', (t) => {
 });
 
 test('Handles errors properly', (t) => {
-  return t.throws(
+  return t.throwsAsync(
     from(new Error('An error'))
       .thru(skip(1))
       .thru(collect())

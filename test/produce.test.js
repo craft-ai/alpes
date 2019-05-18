@@ -70,7 +70,7 @@ test('Finite streams with errors can be produced', (t) => {
   const observedArray = [];
   let value = 0;
   return t
-    .throws(
+    .throwsAsync(
       produce((push) => {
         push({ value: value++ });
         if (value > 4) {
@@ -91,7 +91,7 @@ test('Finite streams with errors can be produced (second version)', (t) => {
   const observedArray = [];
   let value = 0;
   return t
-    .throws(
+    .throwsAsync(
       produce((push) => {
         push({ value: value++ });
         if (value > 4) {
@@ -163,7 +163,7 @@ test('Asynchronous finite streams with errors can be produced', (t) => {
   const observedArray = [];
   let value = 3;
   return t
-    .throws(
+    .throwsAsync(
       produce((push) =>
         delay(500).then(() => {
           push({ value: value-- });
