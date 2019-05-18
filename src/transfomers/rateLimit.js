@@ -1,5 +1,5 @@
 const { transduceToStream } = require('./transduce');
-const { delay } = require('./utils');
+const delay = require('../basics/delay');
 
 function createRateLimitTransformer(interval) {
   return (reducer) => {

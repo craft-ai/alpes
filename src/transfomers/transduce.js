@@ -1,10 +1,9 @@
-const { consume, createStream, push } = require('../basics/stream');
+const { consume, push } = require('../basics/stream');
 //const strFromStream = require('./basics/strFromStream');
 //const strFromEvent = require('./basics/strFromEvent');
 
 function transduce(transformer, reducer, seeder) {
   const consumeStream = (stream) => {
-    // $FlowFixMe it seems the T == TransformedT case is not well handled...
     const finalReducer = transformer ? transformer(reducer) : reducer;
     let finalAccumulation = seeder();
 
@@ -64,13 +63,9 @@ function nullSeeder() {
   return;
 }
 
-function transduceToStream(
-  transformer,
-  reducer = concatEvent,
-  seeder = createStream
-) {
+function transduceToStream(transformer, reducer = concatEvent, seeder) {
   return (inputStream) => {
-    const outputStream = seeder();
+    const outputStream = seeder ? seeder() : inputStream.createStream();
     transduce(
       transformer,
       reducerFromStreamReducer(reducer, outputStream),

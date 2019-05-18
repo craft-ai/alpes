@@ -1,6 +1,6 @@
 const { StreamError } = require('../basics/errors');
-const { fromIterable } = require('./from');
-const { concatEvent, transduceToStream } = require('./transduce');
+const { fromIterable } = require('../creators/from');
+const { concatEvent, transduceToStream } = require('../transfomers/transduce');
 const { consume } = require('../basics/stream');
 //const strFromStream = require('./basics/strFromStream');
 //const strFromEvent = require('./basics/strFromEvent');
@@ -39,7 +39,9 @@ function concat(...substreams) {
   if (substreams.length == 1) {
     return substreams[0];
   }
-  return transduceToStream(undefined, concatStream)(fromIterable(substreams));
+  return transduceToStream(undefined, concatStream)(
+    fromIterable(substreams)(substreams[0].createStream)
+  );
 }
 
 module.exports = {

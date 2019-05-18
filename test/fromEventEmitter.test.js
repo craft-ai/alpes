@@ -1,6 +1,6 @@
 const EventEmitter = require('events');
 const test = require('ava');
-const { collect, fromEventEmitter } = require('../src');
+const { collect, fromEventEmitter } = require('../src/functional');
 
 test('Can be provided with a simple event emitter', (t) => {
   const eventEmitter = new EventEmitter();

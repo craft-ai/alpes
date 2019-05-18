@@ -1,4 +1,4 @@
-const { consume, createStream, push } = require('../basics/stream');
+const { consume, push } = require('../basics/stream');
 
 const promisifyVal = Promise.resolve.bind(Promise);
 
@@ -24,7 +24,7 @@ function fork(count) {
   return (stream) => {
     const forks = new Array(count)
       .fill(null) // Needed to have an array wih assigned value.
-      .map(() => createStream());
+      .map(() => stream.createStream());
     const forksDone = forks.map(() => false);
     const consumer = createConsumer(forks, forksDone);
     consume(consumer)(stream).catch((error) => {

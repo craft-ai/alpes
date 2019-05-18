@@ -1,6 +1,6 @@
 const { transduceToStream } = require('./transduce');
-const { mergeStream } = require('./merge');
-const { concatStream } = require('./concat');
+const { mergeStream } = require('../combiners/merge');
+const { concatStream } = require('../combiners/concat');
 
 function createMapperTransformer(mapper) {
   return (reducer) => (accumulation, event) => {

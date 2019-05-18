@@ -1,6 +1,6 @@
 const { StreamError } = require('../basics/errors');
-const { fromIterable } = require('./from');
-const { concatEvent, transduceToStream } = require('./transduce');
+const { fromIterable } = require('../creators/from');
+const { concatEvent, transduceToStream } = require('../transfomers/transduce');
 const { consume } = require('../basics/stream');
 //const strFromStream = require('./basics/strFromStream');
 //const strFromEvent = require('./basics/strFromEvent');
@@ -26,14 +26,12 @@ function mergeSubstreamConsume(context, substreamEvent) {
 
 function mergeStream(stream) {
   const context = {
-    // $FlowFixMe
     concatEventToStream: concatEvent(stream),
     substreamCount: 0,
     substreamDoneCount: 0,
     done: false,
     error: false
   };
-  // $FlowFixMe
   return (event) => {
     // console.log(`mergeStream(${strFromStream(stream)}, ${strFromEvent(event)}) (${context.substreamCount}/${context.substreamDoneCount}/${context.done})`);
     if (event.done) {
@@ -68,7 +66,9 @@ function merge(...substreams) {
   if (substreams.length == 1) {
     return substreams[0];
   }
-  return transduceToStream(undefined, mergeStream)(fromIterable(substreams));
+  return transduceToStream(undefined, mergeStream)(
+    fromIterable(substreams)(substreams[0].createStream)
+  );
 }
 
 module.exports = {

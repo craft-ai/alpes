@@ -1,60 +1,29 @@
+const { createStream } = require('../basics/stream');
 const {
   AlreadyConsumedStreamError,
   ProduceEventOnceDoneStreamError,
   StreamError
 } = require('../basics/errors');
-const { batch } = require('../shared/batch');
-const { chain, concatMap, map, mergeMap } = require('../shared/map');
-const { collect } = require('../shared/collect');
-const { concat } = require('../shared/concat');
-const { drain } = require('../shared/drain');
-const { filter } = require('../shared/filter');
-const { fork } = require('../shared/fork');
-const {
-  from,
-  fromEventEmitter,
-  fromIterable,
-  throwError
-} = require('../shared/from');
-const { merge } = require('../shared/merge');
-const { produce } = require('../shared/produce');
-const { rateLimit } = require('../shared/rateLimit');
-const { reduce } = require('../shared/reduce');
-const { scan } = require('../shared/scan');
-const { skip } = require('../shared/skip');
-const { subscribe } = require('../shared/subscribe');
-const { take } = require('../shared/take');
-const { tap } = require('../shared/tap');
-const { transduce } = require('../shared/transduce');
-const { transform } = require('../shared/transform');
+const delay = require('../basics/delay');
+const creators = require('../creators');
+const combiners = require('../combiners');
+const transformers = require('../transfomers');
+
+const functionalCreators = Object.values(creators).reduce(
+  (functionalCreators, creator) => {
+    functionalCreators[creator.name] = (...args) =>
+      creator(...args)(createStream);
+    return functionalCreators;
+  },
+  {}
+);
 
 module.exports = {
   AlreadyConsumedStreamError,
-  batch,
-  chain,
-  collect,
-  concat,
-  concatMap,
-  drain,
-  filter,
-  fork,
-  from,
-  fromEventEmitter,
-  map,
-  merge,
-  mergeMap,
-  of: (...args) => fromIterable(args),
-  produce,
   ProduceEventOnceDoneStreamError,
-  rateLimit,
-  reduce,
-  scan,
-  skip,
   StreamError,
-  subscribe,
-  take,
-  tap,
-  throwError,
-  transduce,
-  transform
+  delay,
+  ...transformers,
+  ...functionalCreators,
+  ...combiners
 };

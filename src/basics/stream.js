@@ -19,13 +19,13 @@ const CONSUMER_STATUS = {
   DONE: 'DONE'
 };
 
-const DEFAULT_INTERNAL_STREAM_CONFIGURATION = {
+const DEFAULT_STREAM_CONFIGURATION = {
   bufferHighWaterMark: 100
 };
 
 let nextStreamId = 0;
 
-function createStream(producer, cfg = DEFAULT_INTERNAL_STREAM_CONFIGURATION) {
+function createStream(producer, cfg = DEFAULT_STREAM_CONFIGURATION) {
   const stream = {
     id: nextStreamId++,
 
@@ -40,7 +40,8 @@ function createStream(producer, cfg = DEFAULT_INTERNAL_STREAM_CONFIGURATION) {
     eventEmitter: new EventEmitter()
   };
 
-  stream.thru = (f) => f(stream);
+  stream.createStream = (producer, childCfg = cfg) =>
+    createStream(producer, childCfg);
 
   return stream;
 }
@@ -259,6 +260,7 @@ function push(event, resilientToDone = false) {
 }
 
 module.exports = {
+  DEFAULT_STREAM_CONFIGURATION,
   createStream,
   consume,
   push,
