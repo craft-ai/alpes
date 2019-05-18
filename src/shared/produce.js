@@ -1,4 +1,4 @@
-const { createBaseStream } = require('../functional/baseStream');
+const { createStream } = require('../basics/stream');
 
 function produce(producer, seed) {
   let currentSeed = seed;
@@ -28,7 +28,7 @@ function produce(producer, seed) {
     }
   };
 
-  return createBaseStream(internalProducer);
+  return createStream(internalProducer);
 }
 
 module.exports = {

@@ -1,14 +1,14 @@
-const { StreamError } = require('./errors');
+const { StreamError } = require('../basics/errors');
 const { fromIterable } = require('./from');
 const { concatEvent, transduceToStream } = require('./transduce');
-//const { strFromEvent } = require('./basics');
+const { consume } = require('../basics/stream');
+//const strFromStream = require('./basics/strFromStream');
+//const strFromEvent = require('./basics/strFromEvent');
 
 function concatStream(stream) {
-  // $FlowFixMe
   const concatEventToStream = concatEvent(stream);
-  // $FlowFixMe
   return (event) => {
-    //console.log(`concatStream(${stream.toString()}, ${strFromEvent(event)})`);
+    //console.log(`concatStream(${strFromStream(stream)}, ${strFromEvent(event)})`);
     if (event.done) {
       return concatEventToStream({ done: true });
     } else if (event.error) {
@@ -17,17 +17,15 @@ function concatStream(stream) {
       const substream = event.value;
       // Wait for the full substream to be consumed.
       let substreamDone = false;
-      return substream
-        .consume((substreamEvent) => {
-          if (substreamEvent.done) {
-            return true;
-          }
-          if (substreamEvent.error) {
-            substreamDone = true;
-          }
-          return concatEventToStream(substreamEvent);
-        })
-        .then(() => substreamDone);
+      return consume((substreamEvent) => {
+        if (substreamEvent.done) {
+          return true;
+        }
+        if (substreamEvent.error) {
+          substreamDone = true;
+        }
+        return concatEventToStream(substreamEvent);
+      })(substream).then(() => substreamDone);
     }
   };
 }

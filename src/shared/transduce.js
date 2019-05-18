@@ -1,5 +1,6 @@
-const { createBaseStream } = require('../functional/baseStream');
-// const { strFromEvent } = require('./basics');
+const { consume, createStream, push } = require('../basics/stream');
+//const strFromStream = require('./basics/strFromStream');
+//const strFromEvent = require('./basics/strFromEvent');
 
 function transduce(transformer, reducer, seeder) {
   const consumeStream = (stream) => {
@@ -7,24 +8,22 @@ function transduce(transformer, reducer, seeder) {
     const finalReducer = transformer ? transformer(reducer) : reducer;
     let finalAccumulation = seeder();
 
-    return stream
-      .consume((event) => {
-        // console.log(`${stream.toString()} - consume(${strFromEvent(event)})`);
-        const reducerResult = finalReducer(finalAccumulation, event);
-        if (reducerResult instanceof Promise) {
-          return reducerResult.then(({ accumulation, done }) => {
-            finalAccumulation = accumulation;
-            // console.log(`${stream.toString()} - consume(${strFromEvent(event)}) - async finished`);
-            return !!done;
-          });
-        } else {
-          const { accumulation, done } = reducerResult;
+    return consume((event) => {
+      // console.log(`${strFromStream(stream)} - consume(${strFromEvent(event)})`);
+      const reducerResult = finalReducer(finalAccumulation, event);
+      if (reducerResult instanceof Promise) {
+        return reducerResult.then(({ accumulation, done }) => {
           finalAccumulation = accumulation;
-          // console.log(`${stream.toString()} - consume(${strFromEvent(event)}) - sync finished`);
+          // console.log(`${strFromStream(stream)} - consume(${strFromEvent(event)}) - async finished`);
           return !!done;
-        }
-      })
-      .then(() => finalAccumulation);
+        });
+      } else {
+        const { accumulation, done } = reducerResult;
+        finalAccumulation = accumulation;
+        // console.log(`${strFromStream(stream)} - consume(${strFromEvent(event)}) - sync finished`);
+        return !!done;
+      }
+    })(stream).then(() => finalAccumulation);
   };
 
   return (stream) => consumeStream(stream);
@@ -32,8 +31,8 @@ function transduce(transformer, reducer, seeder) {
 
 function concatEvent(stream) {
   return (event) => {
-    //console.log(`concatEvent(${stream.toString()}, ${strFromEvent(event)})`);
-    const pushResult = stream.push(event);
+    //console.log(`concatEvent(${strFromStream(stream)})(${strFromEvent(event)})`);
+    const pushResult = push(event)(stream);
     if (pushResult instanceof Promise) {
       return pushResult.then((done) => done);
     } else {
@@ -45,7 +44,7 @@ function concatEvent(stream) {
 function reducerFromStreamReducer(reducer, stream) {
   const outputStreamReducer = reducer(stream);
   return (accumulation, event) => {
-    // console.log(`${stream.toString()} - reduce(${strFromEvent(event)})`);
+    // console.log(`${strFromStream(stream)} - reduce(${strFromEvent(event)})`);
     const done = outputStreamReducer(event);
     if (done instanceof Promise) {
       return done.then((done) => ({
@@ -67,9 +66,8 @@ function nullSeeder() {
 
 function transduceToStream(
   transformer,
-  // $FlowFixMe
   reducer = concatEvent,
-  seeder = createBaseStream
+  seeder = createStream
 ) {
   return (inputStream) => {
     const outputStream = seeder();
@@ -77,7 +75,7 @@ function transduceToStream(
       transformer,
       reducerFromStreamReducer(reducer, outputStream),
       nullSeeder
-    )(inputStream).catch((error) => outputStream.push({ error }));
+    )(inputStream).catch((error) => push({ error })(outputStream));
     return outputStream;
   };
 }

@@ -2,7 +2,7 @@ const {
   AlreadyConsumedStreamError,
   ProduceEventOnceDoneStreamError,
   StreamError
-} = require('../shared/errors');
+} = require('../basics/errors');
 const { batch } = require('../shared/batch');
 const { chain, concatMap, map, mergeMap } = require('../shared/map');
 const { collect } = require('../shared/collect');

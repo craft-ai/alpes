@@ -1,11 +1,11 @@
 const { Readable } = require('stream');
-const { StreamError } = require('./errors');
-const { createBaseStream } = require('../functional/baseStream');
+const { StreamError } = require('../basics/errors');
+const { createStream, push } = require('../basics/stream');
 
 function fromEventEmitter(eventEmitter, listeners) {
-  const stream = createBaseStream();
+  const stream = createStream();
   const encapsulatedPush = (event) => {
-    const pushResult = stream.push(event);
+    const pushResult = push(event)(stream);
     if (pushResult instanceof Promise) {
       return pushResult.then((done) => {
         if (done) {
@@ -39,9 +39,7 @@ function fromEventEmitter(eventEmitter, listeners) {
 }
 
 function fromReadable(readable) {
-  // $FlowFixMe stream.Readable does not extend events.EventEmitter in the type system
-  const eventEmitter = readable;
-  const stream = fromEventEmitter(eventEmitter, {
+  const stream = fromEventEmitter(readable, {
     data: (push) => (value) => {
       const pushResult = push({ value });
       if (pushResult instanceof Promise) {
@@ -65,7 +63,7 @@ function fromReadable(readable) {
 function fromIterable(iterable) {
   // $FlowFixMe bug in the Iterable type of flow (cf. https://github.com/facebook/flow/issues/1163)
   const iterator = iterable[Symbol.iterator]();
-  return createBaseStream((push) => {
+  return createStream((push) => {
     let continueProduction = true;
     while (continueProduction) {
       const iteratorResult = iterator.next();
@@ -80,13 +78,13 @@ function fromIterable(iterable) {
 }
 
 function fromError(error) {
-  return createBaseStream((push) => {
+  return createStream((push) => {
     push({ error });
   });
 }
 
 function fromPromise(promise) {
-  return createBaseStream((push) =>
+  return createStream((push) =>
     promise.then(
       (value) => {
         push({ value });

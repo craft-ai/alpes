@@ -26,14 +26,12 @@ function map(mapper) {
 
 function chain(mapper) {
   const reducerTransformer = createMapperTransformer(mapper);
-  // $FlowFixMe
   const transducer = transduceToStream(reducerTransformer, mergeStream);
   return transducer;
 }
 
 function concatMap(mapper) {
   const reducerTransformer = createMapperTransformer(mapper);
-  // $FlowFixMe
   const transducer = transduceToStream(reducerTransformer, concatStream);
   return transducer;
 }

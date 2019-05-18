@@ -1,7 +1,9 @@
-const { StreamError } = require('./errors');
+const { StreamError } = require('../basics/errors');
 const { fromIterable } = require('./from');
 const { concatEvent, transduceToStream } = require('./transduce');
-//const { strFromEvent } = require('./basics');
+const { consume } = require('../basics/stream');
+//const strFromStream = require('./basics/strFromStream');
+//const strFromEvent = require('./basics/strFromEvent');
 
 function mergeSubstreamConsume(context, substreamEvent) {
   // console.log(`mergeSubstreamConsume(${strFromEvent(substreamEvent)}) (${context.substreamCount}/${context.substreamDoneCount}/${context.done})`);
@@ -33,7 +35,7 @@ function mergeStream(stream) {
   };
   // $FlowFixMe
   return (event) => {
-    // console.log(`mergeStream(${stream.toString()}, ${strFromEvent(event)}) (${context.substreamCount}/${context.substreamDoneCount}/${context.done})`);
+    // console.log(`mergeStream(${strFromStream(stream)}, ${strFromEvent(event)}) (${context.substreamCount}/${context.substreamDoneCount}/${context.done})`);
     if (event.done) {
       context.done = true;
       if (context.substreamCount == context.substreamDoneCount) {
@@ -48,7 +50,7 @@ function mergeStream(stream) {
       ++context.substreamCount;
       const substream = event.value;
       // Don't wait for the full substream to be consumed.
-      substream.consume(mergeSubstreamConsume.bind(null, context));
+      consume(mergeSubstreamConsume.bind(null, context))(substream);
       // Forcing the return of a Promise.
       // This avoids unwinding the full _master_ stream in one go
       // Which were causing max listeners issues in the underlying event emitter.
